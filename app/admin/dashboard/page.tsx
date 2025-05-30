@@ -10,11 +10,20 @@ import { AdminRequestTable } from "@/components/admin-request-table"
 import { toast } from "@/components/ui/use-toast"
 import { Filter, X } from "lucide-react"
 
+interface Request {
+  id: string
+  status: string
+  sector: string
+  email: string
+  description: string
+}
+
 export default function AdminDashboardPage() {
-  const [requests, setRequests] = useState([])
-  const [filteredRequests, setFilteredRequests] = useState([])
+  const [requests, setRequests] = useState<Request[]>([])
+  const [filteredRequests, setFilteredRequests] = useState<Request[]>([])
   const [statusFilter, setStatusFilter] = useState("all")
   const [sectorFilter, setSectorFilter] = useState("all")
+  const [isClient, setIsClient] = useState(false)
 
   const sectors = [
     "Chichinales",
@@ -33,7 +42,8 @@ export default function AdminDashboardPage() {
   const statuses = ["Pendiente", "En Revisión", "Aprobado", "Rechazado", "Finalizado"]
 
   useEffect(() => {
-    const allRequests = JSON.parse(localStorage.getItem("requests") || "[]")
+    setIsClient(true)
+    const allRequests = JSON.parse(window?.localStorage?.getItem("requests") || "[]")
     setRequests(allRequests)
     setFilteredRequests(allRequests)
   }, [])
@@ -55,8 +65,10 @@ export default function AdminDashboardPage() {
   }, [requests, statusFilter, sectorFilter])
 
   const updateRequestStatus = async (id: string, newStatus: string) => {
-    const currentAdmin = localStorage.getItem("userName") || "Administrador"
-    const adminEmail = localStorage.getItem("userEmail") || "admin@compras.com"
+    if (!window?.localStorage) return
+
+    const currentAdmin = window.localStorage.getItem("userName") || "Administrador"
+    const adminEmail = window.localStorage.getItem("userEmail") || "admin@compras.com"
 
     const updatedRequests = requests.map((request) => {
       if (request.id === id) {
@@ -72,7 +84,7 @@ export default function AdminDashboardPage() {
     })
 
     setRequests(updatedRequests)
-    localStorage.setItem("requests", JSON.stringify(updatedRequests))
+    window.localStorage.setItem("requests", JSON.stringify(updatedRequests))
 
     // Find the updated request to get user details
     const updatedRequest = updatedRequests.find((req) => req.id === id)
@@ -126,6 +138,10 @@ export default function AdminDashboardPage() {
       description: "Se han eliminado todos los filtros aplicados.",
       duration: 2000,
     })
+  }
+
+  if (!isClient) {
+    return <div>Cargando...</div>
   }
 
   const hasActiveFilters = statusFilter !== "all" || sectorFilter !== "all"
@@ -207,108 +223,67 @@ export default function AdminDashboardPage() {
             </Card>
           </div>
 
-          {/* Filtros */}
-          <Card className="bg-white/70 backdrop-blur-sm border-blue-200">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-blue-900 flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                Filtros
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
-                <div className="space-y-2 flex-1">
-                  <label className="text-sm font-medium text-blue-800">Estado</label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="bg-white border-blue-200">
-                      <SelectValue placeholder="Todos los estados" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los estados</SelectItem>
-                      {statuses.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2 flex-1">
-                  <label className="text-sm font-medium text-blue-800">Sector</label>
-                  <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                    <SelectTrigger className="bg-white border-blue-200">
-                      <SelectValue placeholder="Todos los sectores" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los sectores</SelectItem>
-                      {sectors.map((sector) => (
-                        <SelectItem key={sector} value={sector}>
-                          {sector}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {hasActiveFilters && (
-                  <Button
-                    variant="outline"
-                    onClick={clearFilters}
-                    className="border-blue-200 text-blue-700 hover:bg-blue-50"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Limpiar filtros
-                  </Button>
-                )}
-              </div>
-              {hasActiveFilters && (
-                <div className="mt-4 text-sm text-blue-600">
-                  Mostrando {filteredRequests.length} de {requests.length} solicitudes
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div className="flex items-center gap-4 bg-white/70 p-4 rounded-lg border border-blue-200">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">Filtros:</span>
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                {statuses.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sectorFilter} onValueChange={setSectorFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sector" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los sectores</SelectItem>
+                {sectors.map((sector) => (
+                  <SelectItem key={sector} value={sector}>
+                    {sector}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {hasActiveFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                onClick={clearFilters}
+              >
+                <X className="h-4 w-4" />
+                Limpiar filtros
+              </Button>
+            )}
+          </div>
 
-          <Tabs defaultValue="all" className="w-full">
+          <Tabs defaultValue="active" className="w-full">
             <TabsList className="bg-white/70 border border-blue-200">
-              <TabsTrigger value="all" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900">
-                Activas ({activeRequests.length})
+              <TabsTrigger value="active" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900">
+                Activas
               </TabsTrigger>
               <TabsTrigger
-                value="pending"
+                value="finished"
                 className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900"
               >
-                Sin Revisar ({filteredRequests.filter((r) => r.status === "Pendiente").length})
-              </TabsTrigger>
-              <TabsTrigger
-                value="in-progress"
-                className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900"
-              >
-                En Proceso ({filteredRequests.filter((r) => r.status === "En Revisión").length})
-              </TabsTrigger>
-              <TabsTrigger
-                value="completed"
-                className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900"
-              >
-                Finalizadas ({finishedRequests.length})
+                Finalizadas
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="all">
-              <AdminRequestTable requests={activeRequests} updateStatus={updateRequestStatus} />
+            <TabsContent value="active">
+              <AdminRequestTable requests={activeRequests} onStatusUpdate={updateRequestStatus} />
             </TabsContent>
-            <TabsContent value="pending">
-              <AdminRequestTable
-                requests={filteredRequests.filter((r) => r.status === "Pendiente")}
-                updateStatus={updateRequestStatus}
-              />
-            </TabsContent>
-            <TabsContent value="in-progress">
-              <AdminRequestTable
-                requests={filteredRequests.filter((r) => r.status === "En Revisión")}
-                updateStatus={updateRequestStatus}
-              />
-            </TabsContent>
-            <TabsContent value="completed">
-              <AdminRequestTable requests={finishedRequests} updateStatus={updateRequestStatus} />
+            <TabsContent value="finished">
+              <AdminRequestTable requests={finishedRequests} onStatusUpdate={updateRequestStatus} />
             </TabsContent>
           </Tabs>
         </div>

@@ -10,15 +10,21 @@ import { RequestTable } from "@/components/request-table"
 
 export default function DashboardPage() {
   const [requests, setRequests] = useState([])
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
-    const userEmail = localStorage.getItem("userEmail")
-    const allRequests = JSON.parse(localStorage.getItem("requests") || "[]")
+    setIsClient(true)
+    const userEmail = window?.localStorage?.getItem("userEmail")
+    const allRequests = JSON.parse(window?.localStorage?.getItem("requests") || "[]")
 
     // Filter requests for current user
     const userRequests = allRequests.filter((req) => req.email === userEmail)
     setRequests(userRequests)
   }, [])
+
+  if (!isClient) {
+    return <div>Cargando...</div>
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-blue-50 to-indigo-100">
