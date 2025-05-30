@@ -10,14 +10,7 @@ import { AdminRequestTable } from "@/components/admin-request-table"
 import { toast } from "@/components/ui/use-toast"
 import { Filter, X } from "lucide-react"
 import Link from "next/link"
-
-interface Request {
-  id: string
-  status: string
-  sector: string
-  email: string
-  description: string
-}
+import type { Request } from "@/types/request"
 
 export default function AdminDashboardPage() {
   const [requests, setRequests] = useState<Request[]>([])

@@ -60,6 +60,7 @@ export default function NewRequestPage() {
         observations,
         date: new Date().toISOString().split("T")[0],
         status: "Pendiente",
+        user: localStorage.getItem("userName") || userEmail.split("@")[0]
       }
 
       // Get existing requests from localStorage

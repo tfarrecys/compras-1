@@ -6,20 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Eye, User } from "lucide-react"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-interface Request {
-  id: string
-  description: string
-  date: string
-  status: string
-  user: string
-  sector: string
-  email?: string
-  priority?: string
-  resolvedBy?: string
-  resolvedByEmail?: string
-  resolvedAt?: string
-}
+import type { Request } from "@/types/request"
 
 interface AdminRequestTableProps {
   requests: Request[]
