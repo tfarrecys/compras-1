@@ -1,92 +1,90 @@
-import { PrismaAdapter } from "@auth/prisma-adapter"
-import type { NextAuthOptions } from "next-auth"
-import { getServerSession } from "next-auth/next"
-import CredentialsProvider from "next-auth/providers/credentials"
-import { prisma } from "@/lib/db"
+import { sql } from "@/lib/db"
 import bcrypt from "bcryptjs"
+import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
 
-export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
-  session: {
-    strategy: "jwt",
-  },
-  pages: {
-    signIn: "/login",
-    signOut: "/",
-    error: "/login",
-  },
-  providers: [
-    CredentialsProvider({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
+export async function validateUser(email: string, password: string) {
+  try {
+    // Verificar si es un admin predefinido
+    const adminUsers = [
+      { email: "admin@compras.com", password: "admin123", name: "Administrador Principal", role: "admin" },
+      { email: "compras@empresa.com", password: "compras123", name: "Gestor de Compras", role: "admin" },
+      { email: "supervisor@compras.com", password: "super123", name: "Supervisor de Compras", role: "admin" },
+    ]
 
-        // Verificar si es un admin predefinido
-        const adminUsers = [
-          { email: "admin@compras.com", password: "admin123", name: "Administrador Principal", role: "admin" },
-          { email: "compras@empresa.com", password: "compras123", name: "Gestor de Compras", role: "admin" },
-          { email: "supervisor@compras.com", password: "super123", name: "Supervisor de Compras", role: "admin" },
-        ]
-
-        const adminUser = adminUsers.find((admin) => admin.email === credentials.email)
-        if (adminUser && adminUser.password === credentials.password) {
-          return {
-            id: adminUser.email,
-            name: adminUser.name,
-            email: adminUser.email,
-            role: adminUser.role,
-          }
-        }
-
-        // Buscar usuario en la base de datos
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
-        })
-
-        if (!user) {
-          return null
-        }
-
-        // Verificar contraseña
-        const passwordMatch = await bcrypt.compare(credentials.password, user.password)
-
-        if (!passwordMatch) {
-          return null
-        }
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        }
-      },
-    }),
-  ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = user.role
-        token.id = user.id
+    const adminUser = adminUsers.find((admin) => admin.email === email)
+    if (adminUser && adminUser.password === password) {
+      return {
+        success: true,
+        user: {
+          id: adminUser.email,
+          name: adminUser.name,
+          email: adminUser.email,
+          role: adminUser.role,
+        },
       }
-      return token
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.role = token.role
-        session.user.id = token.id
-      }
-      return session
-    },
-  },
+    }
+
+    // Buscar usuario en la base de datos
+    const users = await sql`
+      SELECT id, name, email, password, role 
+      FROM users 
+      WHERE email = ${email}
+    `
+
+    if (users.length === 0) {
+      return { success: false, error: "Credenciales incorrectas" }
+    }
+
+    const user = users[0]
+
+    // Verificar contraseña
+    const passwordMatch = await bcrypt.compare(password, user.password)
+
+    if (!passwordMatch) {
+      return { success: false, error: "Credenciales incorrectas" }
+    }
+
+    // Retornar usuario sin la contraseña
+    const { password: _, ...userWithoutPassword } = user
+
+    return {
+      success: true,
+      user: userWithoutPassword,
+    }
+  } catch (error) {
+    console.error("Error during login:", error)
+    return { success: false, error: "Error interno del servidor" }
+  }
 }
 
-export const getSession = () => getServerSession(authOptions)
+export async function getSession() {
+  const cookieStore = cookies()
+  const token = cookieStore.get("user-token")
+  
+  if (!token) {
+    return null
+  }
+
+  try {
+    // Aquí podrías validar el token si lo necesitas
+    return JSON.parse(token.value)
+  } catch {
+    return null
+  }
+}
+
+export async function createSession(user: any) {
+  const cookieStore = cookies()
+  cookieStore.set("user-token", JSON.stringify(user), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  })
+}
+
+export async function destroySession() {
+  const cookieStore = cookies()
+  cookieStore.delete("user-token")
+}

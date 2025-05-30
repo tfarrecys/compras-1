@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { toast } from "@/components/ui/use-toast"
-import Cookies from "js-cookie"
 
 export function UserNav() {
   const router = useRouter()
@@ -30,23 +29,22 @@ export function UserNav() {
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
-      // Limpiar localStorage
-      localStorage.removeItem("userEmail")
-      localStorage.removeItem("userName")
-      localStorage.removeItem("userType")
-      
-      // Limpiar cookies específicas
-      Cookies.remove("user-token")
-      Cookies.remove("user-type")
-      
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("Error al cerrar sesión")
+      }
+
       toast({
         title: "👋 Sesión cerrada",
         description: "Ha cerrado sesión exitosamente. Redirigiendo...",
         duration: 3000,
       })
-      
+
       // Redirigir después de un breve delay para que se vea el toast
       setTimeout(() => {
         router.push("/")
