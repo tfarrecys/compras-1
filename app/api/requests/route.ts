@@ -96,32 +96,37 @@ export async function POST(request: Request) {
             quantity, budget, observations, date, status, username,
             created_at, updated_at
           ) VALUES (
-            ${data.id}, ${data.email}, ${data.sector}, ${data.category || null},
-            ${data.priority || null}, ${data.description}, ${data.quantity || null},
-            ${data.budget || null}, ${data.observations || null}, ${data.date},
-            'Pendiente', ${data.user || null}, NOW(), NOW()
+            ${data.id}, 
+            ${data.email}, 
+            ${data.sector}, 
+            ${data.category || null},
+            ${data.priority || null}, 
+            ${data.description}, 
+            ${data.quantity ? parseInt(data.quantity) : null},
+            ${data.budget ? parseFloat(data.budget) : null},
+            ${data.observations || null}, 
+            ${data.date ? new Date(data.date) : new Date()},
+            'Pendiente', 
+            ${data.user || null}, 
+            NOW(), 
+            NOW()
           )
-          RETURNING 
-            id, 
-            email, 
-            sector, 
-            category, 
-            priority, 
-            description,
-            quantity, 
-            budget, 
-            observations, 
-            date, 
-            status,
-            resolved_by as "resolvedBy",
-            resolved_by_email as "resolvedByEmail",
-            resolved_at as "resolvedAt",
-            username as "user",
-            created_at as "createdAt",
-            updated_at as "updatedAt"
+          RETURNING *
         `
-        console.log("Solicitud creada exitosamente:", { id: result[0].id })
-        return NextResponse.json(result[0])
+        
+        // Transformar los datos antes de enviarlos
+        const transformedResult = {
+          ...result[0],
+          createdAt: result[0].created_at,
+          updatedAt: result[0].updated_at,
+          resolvedAt: result[0].resolved_at,
+          resolvedBy: result[0].resolved_by,
+          resolvedByEmail: result[0].resolved_by_email,
+          user: result[0].username
+        }
+
+        console.log("Solicitud creada exitosamente:", { id: transformedResult.id })
+        return NextResponse.json(transformedResult)
       } catch (error) {
         attempts++
         console.error(`Intento ${attempts} fallido:`, error)
