@@ -5,12 +5,12 @@ declare global {
   var prisma: PrismaClient | undefined
 }
 
-const db = global.prisma || new PrismaClient({
+const prisma = global.prisma || new PrismaClient({
   log: ["query"],
 })
 
-if (process.env.NODE_ENV !== "production") global.prisma = db
+if (process.env.NODE_ENV !== "production") global.prisma = prisma
 
 const sql = neon(process.env.DATABASE_URL!)
 
-export { db, sql }
+export { prisma, sql }
