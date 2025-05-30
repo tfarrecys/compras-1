@@ -10,6 +10,7 @@ import { Plus } from "lucide-react"
 import Link from "next/link"
 import { toast } from "@/components/ui/use-toast"
 import type { Request } from "@/types/request"
+import { ConnectionStatus } from "@/components/connection-status"
 
 export default function DashboardPage() {
   const [requests, setRequests] = useState<Request[]>([])
@@ -128,6 +129,8 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          <ConnectionStatus />
 
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="bg-white/70 border border-blue-200">

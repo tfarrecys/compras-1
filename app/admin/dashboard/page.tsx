@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/use-toast"
 import { Filter, X } from "lucide-react"
 import Link from "next/link"
 import type { Request } from "@/types/request"
+import { ConnectionStatus } from "@/components/connection-status"
 
 export default function AdminDashboardPage() {
   const [requests, setRequests] = useState<Request[]>([])
@@ -343,6 +344,10 @@ export default function AdminDashboardPage() {
               <AdminRequestTable requests={finishedRequests} updateStatus={updateRequestStatus} />
             </TabsContent>
           </Tabs>
+
+          <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+            <ConnectionStatus />
+          </div>
         </div>
       </main>
     </div>
