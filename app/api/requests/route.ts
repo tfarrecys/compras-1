@@ -3,50 +3,66 @@ import { sql } from "@/lib/db"
 import { initializeDatabase } from "@/lib/init-db"
 
 // Obtener solicitudes
-export async function GET() {
+export async function GET(request: Request) {
   try {
     console.log("Iniciando obtención de solicitudes...")
     
     // Asegurarnos de que la tabla existe
     await initializeDatabase()
 
-    // Obtener solicitudes con reintentos
-    let attempts = 0
-    const maxAttempts = 3
-    
-    while (attempts < maxAttempts) {
-      try {
-        const requests = await sql`
-          SELECT 
-            id, 
-            email, 
-            sector, 
-            category, 
-            priority, 
-            description,
-            quantity, 
-            budget, 
-            observations, 
-            date, 
-            status,
-            resolved_by as "resolvedBy",
-            resolved_by_email as "resolvedByEmail",
-            resolved_at as "resolvedAt",
-            username as "user",
-            created_at as "createdAt",
-            updated_at as "updatedAt"
-          FROM requests 
-          ORDER BY created_at DESC
-        `
-        console.log(`Solicitudes obtenidas exitosamente: ${requests.length}`)
-        return NextResponse.json(requests)
-      } catch (error) {
-        attempts++
-        console.error(`Intento ${attempts} fallido:`, error)
-        if (attempts === maxAttempts) throw error
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempts))
-      }
+    const { searchParams } = new URL(request.url)
+    const email = searchParams.get('email')
+    const userType = searchParams.get('userType')
+
+    let query = sql`
+      SELECT 
+        id, 
+        email, 
+        sector, 
+        category, 
+        priority, 
+        description,
+        quantity, 
+        budget, 
+        observations, 
+        date, 
+        status,
+        resolved_by,
+        resolved_by_email,
+        resolved_at,
+        username,
+        created_at,
+        updated_at
+      FROM requests 
+    `
+
+    // Si no es admin, filtrar por email
+    if (userType !== 'admin' && email) {
+      query = sql`
+        ${query} WHERE email = ${email}
+      `
     }
+
+    // Ordenar por fecha de creación
+    query = sql`
+      ${query} ORDER BY created_at DESC
+    `
+
+    const requests = await query
+
+    // Transformar los resultados
+    const transformedRequests = requests.map(req => ({
+      ...req,
+      createdAt: req.created_at,
+      updatedAt: req.updated_at,
+      resolvedAt: req.resolved_at,
+      resolvedBy: req.resolved_by,
+      resolvedByEmail: req.resolved_by_email,
+      user: req.username
+    }))
+
+    console.log(`Solicitudes obtenidas exitosamente: ${transformedRequests.length}`)
+    return NextResponse.json(transformedRequests)
   } catch (error) {
     console.error("Error al obtener solicitudes:", error)
     return NextResponse.json(
@@ -84,56 +100,43 @@ export async function POST(request: Request) {
       )
     }
 
-    // Insertar solicitud con reintentos
-    let attempts = 0
-    const maxAttempts = 3
+    const result = await sql`
+      INSERT INTO requests (
+        id, email, sector, category, priority, description,
+        quantity, budget, observations, date, status, username,
+        created_at, updated_at
+      ) VALUES (
+        ${data.id}, 
+        ${data.email}, 
+        ${data.sector}, 
+        ${data.category || null},
+        ${data.priority || null}, 
+        ${data.description}, 
+        ${data.quantity ? parseInt(data.quantity) : null},
+        ${data.budget ? parseFloat(data.budget) : null},
+        ${data.observations || null}, 
+        ${data.date ? new Date(data.date) : new Date()},
+        'Pendiente', 
+        ${data.user || null}, 
+        NOW(), 
+        NOW()
+      )
+      RETURNING *
+    `
     
-    while (attempts < maxAttempts) {
-      try {
-        const result = await sql`
-          INSERT INTO requests (
-            id, email, sector, category, priority, description,
-            quantity, budget, observations, date, status, username,
-            created_at, updated_at
-          ) VALUES (
-            ${data.id}, 
-            ${data.email}, 
-            ${data.sector}, 
-            ${data.category || null},
-            ${data.priority || null}, 
-            ${data.description}, 
-            ${data.quantity ? parseInt(data.quantity) : null},
-            ${data.budget ? parseFloat(data.budget) : null},
-            ${data.observations || null}, 
-            ${data.date ? new Date(data.date) : new Date()},
-            'Pendiente', 
-            ${data.user || null}, 
-            NOW(), 
-            NOW()
-          )
-          RETURNING *
-        `
-        
-        // Transformar los datos antes de enviarlos
-        const transformedResult = {
-          ...result[0],
-          createdAt: result[0].created_at,
-          updatedAt: result[0].updated_at,
-          resolvedAt: result[0].resolved_at,
-          resolvedBy: result[0].resolved_by,
-          resolvedByEmail: result[0].resolved_by_email,
-          user: result[0].username
-        }
-
-        console.log("Solicitud creada exitosamente:", { id: transformedResult.id })
-        return NextResponse.json(transformedResult)
-      } catch (error) {
-        attempts++
-        console.error(`Intento ${attempts} fallido:`, error)
-        if (attempts === maxAttempts) throw error
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempts))
-      }
+    // Transformar los datos antes de enviarlos
+    const transformedResult = {
+      ...result[0],
+      createdAt: result[0].created_at,
+      updatedAt: result[0].updated_at,
+      resolvedAt: result[0].resolved_at,
+      resolvedBy: result[0].resolved_by,
+      resolvedByEmail: result[0].resolved_by_email,
+      user: result[0].username
     }
+
+    console.log("Solicitud creada exitosamente:", { id: transformedResult.id })
+    return NextResponse.json(transformedResult)
   } catch (error) {
     console.error("Error al crear solicitud:", error)
     return NextResponse.json(
@@ -147,11 +150,11 @@ export async function POST(request: Request) {
 }
 
 // Actualizar solicitud
-export async function PUT(req: Request) {
+export async function PUT(request: Request) {
   try {
     console.log("Iniciando actualización de solicitud...")
     
-    const data = await req.json()
+    const data = await request.json()
     console.log("Datos de actualización:", { id: data.id, status: data.status })
     
     // Validar datos requeridos
@@ -166,61 +169,42 @@ export async function PUT(req: Request) {
       )
     }
 
-    // Actualizar solicitud con reintentos
-    let attempts = 0
-    const maxAttempts = 3
-    
-    while (attempts < maxAttempts) {
-      try {
-        const result = await sql`
-          UPDATE requests
-          SET 
-            status = ${data.status},
-            resolved_by = ${data.resolvedBy || null},
-            resolved_by_email = ${data.resolvedByEmail || null},
-            resolved_at = ${data.resolvedAt || null},
-            updated_at = NOW()
-          WHERE id = ${data.id}
-          RETURNING 
-            id, 
-            email, 
-            sector, 
-            category, 
-            priority, 
-            description,
-            quantity, 
-            budget, 
-            observations, 
-            date, 
-            status,
-            resolved_by as "resolvedBy",
-            resolved_by_email as "resolvedByEmail",
-            resolved_at as "resolvedAt",
-            username as "user",
-            created_at as "createdAt",
-            updated_at as "updatedAt"
-        `
+    const result = await sql`
+      UPDATE requests
+      SET 
+        status = ${data.status},
+        resolved_by = ${data.resolvedBy || null},
+        resolved_by_email = ${data.resolvedByEmail || null},
+        resolved_at = ${data.resolvedAt ? new Date(data.resolvedAt) : null},
+        updated_at = NOW()
+      WHERE id = ${data.id}
+      RETURNING *
+    `
 
-        if (result.length === 0) {
-          console.warn("Solicitud no encontrada para actualización:", { id: data.id })
-          return NextResponse.json(
-            { error: "Solicitud no encontrada" },
-            { status: 404 }
-          )
-        }
-
-        console.log("Solicitud actualizada exitosamente:", { 
-          id: result[0].id, 
-          newStatus: result[0].status 
-        })
-        return NextResponse.json(result[0])
-      } catch (error) {
-        attempts++
-        console.error(`Intento ${attempts} fallido:`, error)
-        if (attempts === maxAttempts) throw error
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempts))
-      }
+    if (result.length === 0) {
+      console.warn("Solicitud no encontrada para actualización:", { id: data.id })
+      return NextResponse.json(
+        { error: "Solicitud no encontrada" },
+        { status: 404 }
+      )
     }
+
+    // Transformar los datos antes de enviarlos
+    const transformedResult = {
+      ...result[0],
+      createdAt: result[0].created_at,
+      updatedAt: result[0].updated_at,
+      resolvedAt: result[0].resolved_at,
+      resolvedBy: result[0].resolved_by,
+      resolvedByEmail: result[0].resolved_by_email,
+      user: result[0].username
+    }
+
+    console.log("Solicitud actualizada exitosamente:", { 
+      id: transformedResult.id, 
+      newStatus: transformedResult.status 
+    })
+    return NextResponse.json(transformedResult)
   } catch (error) {
     console.error("Error al actualizar solicitud:", error)
     return NextResponse.json(
