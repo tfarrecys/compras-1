@@ -15,10 +15,19 @@ export async function initializeDatabase() {
       throw new Error('No se pudo establecer conexión con la base de datos')
     }
 
-    // Crear tabla requests si no existe
+    // Eliminar tabla si existe
+    try {
+      await sql`DROP TABLE IF EXISTS requests`
+      console.log('Tabla anterior eliminada si existía')
+    } catch (error) {
+      console.error('Error al intentar eliminar tabla:', error)
+      throw error
+    }
+
+    // Crear tabla requests
     try {
       await sql`
-        CREATE TABLE IF NOT EXISTS requests (
+        CREATE TABLE requests (
           id TEXT PRIMARY KEY,
           email TEXT NOT NULL,
           sector TEXT NOT NULL,
@@ -38,9 +47,9 @@ export async function initializeDatabase() {
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )
       `
-      console.log('Tabla requests creada/verificada correctamente')
+      console.log('Tabla requests creada correctamente')
     } catch (error) {
-      console.error('Error al crear/verificar tabla requests:', error)
+      console.error('Error al crear tabla requests:', error)
       throw error
     }
 
@@ -50,6 +59,7 @@ export async function initializeDatabase() {
         SELECT column_name, data_type 
         FROM information_schema.columns 
         WHERE table_name = 'requests'
+        ORDER BY ordinal_position
       `
       console.log('Estructura de la tabla requests:', tableInfo)
     } catch (error) {
