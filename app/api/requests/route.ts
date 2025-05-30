@@ -6,53 +6,39 @@ import { initializeDatabase } from "@/lib/init-db"
 export async function GET(request: Request) {
   try {
     console.log("Iniciando obtención de solicitudes...")
-    
-    // Asegurarnos de que la tabla existe
-    await initializeDatabase()
 
     const { searchParams } = new URL(request.url)
     const email = searchParams.get('email')
     const userType = searchParams.get('userType')
 
-    let query = sql`
-      SELECT 
-        id, 
-        email, 
-        sector, 
-        category, 
-        priority, 
-        description,
-        quantity, 
-        budget, 
-        observations, 
-        date, 
-        status,
-        resolved_by,
-        resolved_by_email,
-        resolved_at,
-        username,
-        created_at,
-        updated_at
-      FROM requests 
-    `
+    console.log('Parámetros de búsqueda:', { email, userType })
 
-    // Si no es admin, filtrar por email
+    let query = 'SELECT * FROM requests'
+    const values: any[] = []
+
     if (userType !== 'admin' && email) {
-      query = sql`
-        ${query} WHERE email = ${email}
-      `
+      query += ' WHERE email = $1'
+      values.push(email)
     }
 
-    // Ordenar por fecha de creación
-    query = sql`
-      ${query} ORDER BY created_at DESC
-    `
+    query += ' ORDER BY created_at DESC'
 
-    const requests = await query
+    const result = await sql.query(query, values)
+    console.log(`Solicitudes encontradas: ${result.length}`)
 
     // Transformar los resultados
-    const transformedRequests = requests.map(req => ({
-      ...req,
+    const transformedRequests = result.map(req => ({
+      id: req.id,
+      email: req.email,
+      sector: req.sector,
+      category: req.category,
+      priority: req.priority,
+      description: req.description,
+      quantity: req.quantity,
+      budget: req.budget,
+      observations: req.observations,
+      date: req.date,
+      status: req.status,
       createdAt: req.created_at,
       updatedAt: req.updated_at,
       resolvedAt: req.resolved_at,
@@ -61,7 +47,6 @@ export async function GET(request: Request) {
       user: req.username
     }))
 
-    console.log(`Solicitudes obtenidas exitosamente: ${transformedRequests.length}`)
     return NextResponse.json(transformedRequests)
   } catch (error) {
     console.error("Error al obtener solicitudes:", error)
@@ -79,9 +64,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     console.log("Iniciando creación de solicitud...")
-    
-    // Asegurarnos de que la tabla existe
-    await initializeDatabase()
 
     const data = await request.json()
     console.log("Datos recibidos:", { ...data, description: data.description?.substring(0, 50) + "..." })
@@ -100,33 +82,46 @@ export async function POST(request: Request) {
       )
     }
 
-    const result = await sql`
+    const query = `
       INSERT INTO requests (
         id, email, sector, category, priority, description,
         quantity, budget, observations, date, status, username,
         created_at, updated_at
-      ) VALUES (
-        ${data.id}, 
-        ${data.email}, 
-        ${data.sector}, 
-        ${data.category || null},
-        ${data.priority || null}, 
-        ${data.description}, 
-        ${data.quantity ? parseInt(data.quantity) : null},
-        ${data.budget ? parseFloat(data.budget) : null},
-        ${data.observations || null}, 
-        ${data.date ? new Date(data.date) : new Date()},
-        'Pendiente', 
-        ${data.user || null}, 
-        NOW(), 
-        NOW()
-      )
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
       RETURNING *
     `
-    
-    // Transformar los datos antes de enviarlos
+
+    const values = [
+      data.id,
+      data.email,
+      data.sector,
+      data.category || null,
+      data.priority || null,
+      data.description,
+      data.quantity ? parseInt(data.quantity) : null,
+      data.budget ? parseFloat(data.budget) : null,
+      data.observations || null,
+      data.date ? new Date(data.date) : new Date(),
+      'Pendiente',
+      data.user || null
+    ]
+
+    const result = await sql.query(query, values)
+    console.log("Solicitud creada:", result[0].id)
+
+    // Transformar el resultado
     const transformedResult = {
-      ...result[0],
+      id: result[0].id,
+      email: result[0].email,
+      sector: result[0].sector,
+      category: result[0].category,
+      priority: result[0].priority,
+      description: result[0].description,
+      quantity: result[0].quantity,
+      budget: result[0].budget,
+      observations: result[0].observations,
+      date: result[0].date,
+      status: result[0].status,
       createdAt: result[0].created_at,
       updatedAt: result[0].updated_at,
       resolvedAt: result[0].resolved_at,
@@ -135,7 +130,6 @@ export async function POST(request: Request) {
       user: result[0].username
     }
 
-    console.log("Solicitud creada exitosamente:", { id: transformedResult.id })
     return NextResponse.json(transformedResult)
   } catch (error) {
     console.error("Error al crear solicitud:", error)
@@ -169,19 +163,29 @@ export async function PUT(request: Request) {
       )
     }
 
-    const result = await sql`
+    const query = `
       UPDATE requests
       SET 
-        status = ${data.status},
-        resolved_by = ${data.resolvedBy || null},
-        resolved_by_email = ${data.resolvedByEmail || null},
-        resolved_at = ${data.resolvedAt ? new Date(data.resolvedAt) : null},
+        status = $1,
+        resolved_by = $2,
+        resolved_by_email = $3,
+        resolved_at = $4,
         updated_at = NOW()
-      WHERE id = ${data.id}
+      WHERE id = $5
       RETURNING *
     `
 
-    if (result.length === 0) {
+    const values = [
+      data.status,
+      data.resolvedBy || null,
+      data.resolvedByEmail || null,
+      data.resolvedAt ? new Date(data.resolvedAt) : null,
+      data.id
+    ]
+
+    const result = await sql.query(query, values)
+
+    if (!result || result.length === 0) {
       console.warn("Solicitud no encontrada para actualización:", { id: data.id })
       return NextResponse.json(
         { error: "Solicitud no encontrada" },
@@ -189,9 +193,19 @@ export async function PUT(request: Request) {
       )
     }
 
-    // Transformar los datos antes de enviarlos
+    // Transformar el resultado
     const transformedResult = {
-      ...result[0],
+      id: result[0].id,
+      email: result[0].email,
+      sector: result[0].sector,
+      category: result[0].category,
+      priority: result[0].priority,
+      description: result[0].description,
+      quantity: result[0].quantity,
+      budget: result[0].budget,
+      observations: result[0].observations,
+      date: result[0].date,
+      status: result[0].status,
       createdAt: result[0].created_at,
       updatedAt: result[0].updated_at,
       resolvedAt: result[0].resolved_at,
@@ -200,7 +214,7 @@ export async function PUT(request: Request) {
       user: result[0].username
     }
 
-    console.log("Solicitud actualizada exitosamente:", { 
+    console.log("Solicitud actualizada:", { 
       id: transformedResult.id, 
       newStatus: transformedResult.status 
     })
