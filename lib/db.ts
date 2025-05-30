@@ -1,18 +1,16 @@
 import { PrismaClient } from "@prisma/client"
 import { neon } from "@neondatabase/serverless"
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+declare global {
+  var prisma: PrismaClient | undefined
 }
 
-const prisma = globalForPrisma.prisma ?? new PrismaClient({
+const db = global.prisma || new PrismaClient({
   log: ["query"],
 })
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
+if (process.env.NODE_ENV !== "production") global.prisma = db
 
 const sql = neon(process.env.DATABASE_URL!)
-
-const db = prisma
 
 export { db, sql }
