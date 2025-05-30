@@ -31,7 +31,7 @@ export default function DashboardPage() {
           return
         }
 
-        const response = await fetch(\`/api/requests?email=\${userEmail}&userType=\${userType}\`)
+        const response = await fetch(`/api/requests?email=${userEmail}&userType=${userType}`)
         if (!response.ok) {
           throw new Error("Error al cargar las solicitudes")
         }

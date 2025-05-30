@@ -10,7 +10,7 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    serverExternalPackages: ['@prisma/client', 'bcrypt']
+    serverActions: true,
   }
 }
 
