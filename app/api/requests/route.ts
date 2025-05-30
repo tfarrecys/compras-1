@@ -1,98 +1,76 @@
 import { NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { sql } from "@/lib/db"
 import { sendNewRequestEmail } from "@/lib/email"
 import { cookies } from "next/headers"
 
 // Obtener solicitudes
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(req.url)
-    const userEmail = searchParams.get("email")
-    const userType = searchParams.get("userType")
-
-    if (!userEmail) {
-      return NextResponse.json(
-        { error: "Email de usuario requerido" },
-        { status: 400 }
-      )
-    }
-
-    // Si es admin, devolver todas las solicitudes
-    if (userType === "admin") {
-      const requests = await db.request.findMany({
-        orderBy: {
-          date: "desc"
-        }
-      })
-      return NextResponse.json(requests)
-    }
-
-    // Si es usuario normal, devolver solo sus solicitudes
-    const requests = await db.request.findMany({
-      where: {
-        email: userEmail
-      },
-      orderBy: {
-        date: "desc"
-      }
-    })
+    const requests = await sql`
+      SELECT * FROM requests 
+      ORDER BY "createdAt" DESC
+    `
 
     return NextResponse.json(requests)
   } catch (error) {
     console.error("Error fetching requests:", error)
-    return NextResponse.json(
-      { error: "Error al obtener las solicitudes" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
 
 // Crear nueva solicitud
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const data = await req.json()
-    
+    const data = await request.json()
+
     // Validar campos requeridos
-    if (!data.email || !data.sector || !data.description) {
+    if (!data.id || !data.email || !data.sector || !data.description) {
       return NextResponse.json(
-        { error: "Faltan campos requeridos: email, sector y descripción son obligatorios" },
+        { error: "Faltan campos requeridos (id, email, sector, description)" },
         { status: 400 }
       )
     }
 
-    // Validar formato de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(data.email)) {
-      return NextResponse.json(
-        { error: "Formato de email inválido" },
-        { status: 400 }
+    // Insertar nueva solicitud
+    const result = await sql`
+      INSERT INTO requests (
+        id, email, sector, category, priority, description, 
+        quantity, budget, observations, date, status, user,
+        "createdAt", "updatedAt"
+      ) VALUES (
+        ${data.id}, ${data.email}, ${data.sector}, ${data.category}, ${data.priority}, ${data.description},
+        ${data.quantity}, ${data.budget}, ${data.observations}, ${data.date}, ${data.status}, ${data.user},
+        NOW(), NOW()
       )
+      RETURNING *
+    `
+
+    // Enviar notificación por email
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "new-request",
+          requestId: data.id,
+          userEmail: data.email,
+          userName: data.user || "Usuario",
+          description: data.description,
+          sector: data.sector,
+          category: data.category,
+          priority: data.priority,
+        }),
+      })
+    } catch (error) {
+      console.error("Error sending email notification:", error)
     }
 
-    const request = await db.request.create({
-      data: {
-        id: data.id || `REQ-${Date.now()}`,
-        email: data.email,
-        sector: data.sector,
-        category: data.category,
-        priority: data.priority,
-        description: data.description,
-        quantity: data.quantity,
-        budget: data.budget,
-        observations: data.observations,
-        date: data.date || new Date().toISOString().split("T")[0],
-        status: "Pendiente",
-        user: data.user
-      }
-    })
-
-    return NextResponse.json(request)
+    return NextResponse.json(result[0])
   } catch (error) {
     console.error("Error creating request:", error)
-    return NextResponse.json(
-      { error: "Error al crear la solicitud" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
 
@@ -101,19 +79,17 @@ export async function PUT(req: Request) {
   try {
     const data = await req.json()
     
-    const request = await db.request.update({
-      where: {
-        id: data.id
-      },
-      data: {
-        status: data.status,
-        resolvedBy: data.resolvedBy,
-        resolvedByEmail: data.resolvedByEmail,
-        resolvedAt: data.resolvedAt
-      }
-    })
+    const request = await sql`
+      UPDATE requests
+      SET status = ${data.status},
+          resolvedBy = ${data.resolvedBy},
+          resolvedByEmail = ${data.resolvedByEmail},
+          resolvedAt = ${data.resolvedAt}
+      WHERE id = ${data.id}
+      RETURNING *
+    `
 
-    return NextResponse.json(request)
+    return NextResponse.json(request[0])
   } catch (error) {
     console.error("Error updating request:", error)
     return NextResponse.json(

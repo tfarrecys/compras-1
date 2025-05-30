@@ -1,71 +1,58 @@
 import { NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { sql } from "@/lib/db"
 import { sendStatusUpdateEmail } from "@/lib/email"
 
 // Obtener solicitud específica
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const requestId = params.id
+    const { id } = params
 
-    const request = await db.request.findUnique({
-      where: {
-        id: requestId
-      }
-    })
+    const requests = await sql`
+      SELECT * FROM requests 
+      WHERE id = ${id}
+    `
 
-    if (!request) {
+    if (requests.length === 0) {
       return NextResponse.json({ error: "Solicitud no encontrada" }, { status: 404 })
     }
 
-    return NextResponse.json(request)
+    return NextResponse.json(requests[0])
   } catch (error) {
     console.error("Error fetching request:", error)
-    return NextResponse.json({ error: "Error al obtener la solicitud" }, { status: 500 })
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
 
 // Actualizar solicitud
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const requestId = params.id
+    const { id } = params
     const data = await request.json()
-    const { status, resolvedByEmail } = data
 
-    // Obtener la solicitud actual
-    const currentRequest = await db.request.findUnique({
-      where: {
-        id: requestId
-      }
-    })
+    const result = await sql`
+      UPDATE requests
+      SET status = ${data.status},
+          resolvedBy = ${data.resolvedBy},
+          resolvedByEmail = ${data.resolvedByEmail},
+          resolvedAt = ${data.resolvedAt},
+          "updatedAt" = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `
 
-    if (!currentRequest) {
+    if (result.length === 0) {
       return NextResponse.json({ error: "Solicitud no encontrada" }, { status: 404 })
     }
 
-    const oldStatus = currentRequest.status
-
-    // Actualizar la solicitud
-    const updatedRequest = await db.request.update({
-      where: {
-        id: requestId
-      },
-      data: {
-        status,
-        resolvedBy: status !== "Pendiente" ? resolvedByEmail : null,
-        resolvedByEmail: status !== "Pendiente" ? resolvedByEmail : null,
-        resolvedAt: status !== "Pendiente" ? new Date().toISOString() : null
-      }
-    })
-
     // Si el estado cambió, enviar email de notificación
-    if (oldStatus !== status) {
+    if (result[0].status !== data.status) {
       try {
         await sendStatusUpdateEmail(
-          currentRequest.email,
-          currentRequest.user || currentRequest.email.split("@")[0],
-          requestId,
-          status,
-          currentRequest.description,
+          result[0].email,
+          result[0].user || result[0].email.split("@")[0],
+          id,
+          data.status,
+          result[0].description,
         )
       } catch (error) {
         console.error("Error sending status update email:", error)
@@ -73,12 +60,30 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      request: updatedRequest,
-    })
+    return NextResponse.json(result[0])
   } catch (error) {
     console.error("Error updating request:", error)
-    return NextResponse.json({ error: "Error al actualizar la solicitud" }, { status: 500 })
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const { id } = params
+
+    const result = await sql`
+      DELETE FROM requests 
+      WHERE id = ${id}
+      RETURNING *
+    `
+
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Solicitud no encontrada" }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting request:", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }

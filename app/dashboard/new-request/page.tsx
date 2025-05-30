@@ -1,9 +1,7 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast"
 
 export default function NewRequestPage() {
-  const { data: session } = useSession()
+  const [user, setUser] = useState<any>(null)
   const [sector, setSector] = useState("")
   const [category, setCategory] = useState("")
   const [priority, setPriority] = useState("")
@@ -24,9 +22,24 @@ export default function NewRequestPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  // Si no hay sesión, redirigir al login
-  if (!session?.user) {
-    router.push("/login")
+  useEffect(() => {
+    // Verificar si hay un usuario en localStorage
+    const userName = localStorage.getItem("userName")
+    const userEmail = localStorage.getItem("userEmail")
+    
+    if (!userName || !userEmail) {
+      router.push("/login")
+      return
+    }
+
+    setUser({
+      name: userName,
+      email: userEmail
+    })
+  }, [router])
+
+  // Si no hay usuario, no renderizar nada
+  if (!user) {
     return null
   }
 
@@ -73,7 +86,7 @@ export default function NewRequestPage() {
       // Create new request object
       const newRequest = {
         id: `REQ-${Date.now()}`,
-        email: session.user.email,
+        email: user.email,
         sector,
         category,
         priority,
@@ -83,7 +96,7 @@ export default function NewRequestPage() {
         observations,
         date: new Date().toISOString().split("T")[0],
         status: "Pendiente",
-        user: session.user.name || session.user.email.split("@")[0]
+        user: user.name
       }
 
       // Enviar solicitud a la API
@@ -98,39 +111,6 @@ export default function NewRequestPage() {
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || "Error al crear la solicitud")
-      }
-
-      // Send email notification to admin
-      try {
-        await fetch("/api/send-email", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            type: "new-request",
-            requestId: newRequest.id,
-            userEmail: session.user.email,
-            userName: session.user.name || "Usuario",
-            description: description,
-            sector: sector,
-            category: category,
-            priority: priority,
-          }),
-        })
-
-        toast({
-          title: "📧 Notificación enviada",
-          description: "Se ha notificado al departamento de compras sobre su nueva solicitud.",
-          duration: 3000,
-        })
-      } catch (error) {
-        console.error("Error sending email notification:", error)
-        toast({
-          title: "⚠️ Advertencia",
-          description: "Solicitud creada, pero no se pudo enviar la notificación por email.",
-          duration: 4000,
-        })
       }
 
       toast({
