@@ -21,7 +21,7 @@ model User {
 }
 
 model Request {
-  id             String    @id
+  id             String   @id
   email          String
   sector         String
   category       String?
@@ -31,13 +31,13 @@ model Request {
   budget         String?
   observations   String?
   date           String
-  status         String    @default("Pendiente")
+  status         String   @default("Pendiente")
   resolvedBy     String?
   resolvedByEmail String?
   resolvedAt     String?
   user           String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@map("requests")
 }
