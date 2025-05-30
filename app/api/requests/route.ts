@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server"
-import { sql, testConnection } from "@/lib/db"
+import { sql } from "@/lib/db"
+import { initializeDatabase } from "@/lib/init-db"
 
 // Obtener solicitudes
 export async function GET() {
   try {
-    // Verificar conexión
-    const isConnected = await testConnection()
-    if (!isConnected) {
-      console.error("No se pudo conectar a la base de datos")
-      return NextResponse.json(
-        { error: "Error de conexión a la base de datos" },
-        { status: 500 }
-      )
-    }
+    // Asegurarnos de que la tabla existe
+    await initializeDatabase()
 
     // Obtener solicitudes
     const requests = await sql`
@@ -33,6 +27,9 @@ export async function GET() {
 // Crear nueva solicitud
 export async function POST(request: Request) {
   try {
+    // Asegurarnos de que la tabla existe
+    await initializeDatabase()
+
     const data = await request.json()
 
     // Validar campos requeridos
