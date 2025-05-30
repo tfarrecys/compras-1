@@ -17,8 +17,26 @@ export async function GET() {
     while (attempts < maxAttempts) {
       try {
         const requests = await sql`
-          SELECT * FROM requests 
-          ORDER BY "createdAt" DESC
+          SELECT 
+            id, 
+            email, 
+            sector, 
+            category, 
+            priority, 
+            description,
+            quantity, 
+            budget, 
+            observations, 
+            date, 
+            status,
+            resolved_by as "resolvedBy",
+            resolved_by_email as "resolvedByEmail",
+            resolved_at as "resolvedAt",
+            username as "user",
+            created_at as "createdAt",
+            updated_at as "updatedAt"
+          FROM requests 
+          ORDER BY created_at DESC
         `
         console.log(`Solicitudes obtenidas exitosamente: ${requests.length}`)
         return NextResponse.json(requests)
@@ -75,15 +93,32 @@ export async function POST(request: Request) {
         const result = await sql`
           INSERT INTO requests (
             id, email, sector, category, priority, description,
-            quantity, budget, observations, date, status, user,
-            "createdAt", "updatedAt"
+            quantity, budget, observations, date, status, username,
+            created_at, updated_at
           ) VALUES (
             ${data.id}, ${data.email}, ${data.sector}, ${data.category || null},
             ${data.priority || null}, ${data.description}, ${data.quantity || null},
             ${data.budget || null}, ${data.observations || null}, ${data.date},
             'Pendiente', ${data.user || null}, NOW(), NOW()
           )
-          RETURNING *
+          RETURNING 
+            id, 
+            email, 
+            sector, 
+            category, 
+            priority, 
+            description,
+            quantity, 
+            budget, 
+            observations, 
+            date, 
+            status,
+            resolved_by as "resolvedBy",
+            resolved_by_email as "resolvedByEmail",
+            resolved_at as "resolvedAt",
+            username as "user",
+            created_at as "createdAt",
+            updated_at as "updatedAt"
         `
         console.log("Solicitud creada exitosamente:", { id: result[0].id })
         return NextResponse.json(result[0])
@@ -134,13 +169,31 @@ export async function PUT(req: Request) {
       try {
         const result = await sql`
           UPDATE requests
-          SET status = ${data.status},
-              resolvedBy = ${data.resolvedBy || null},
-              resolvedByEmail = ${data.resolvedByEmail || null},
-              resolvedAt = ${data.resolvedAt || null},
-              "updatedAt" = NOW()
+          SET 
+            status = ${data.status},
+            resolved_by = ${data.resolvedBy || null},
+            resolved_by_email = ${data.resolvedByEmail || null},
+            resolved_at = ${data.resolvedAt || null},
+            updated_at = NOW()
           WHERE id = ${data.id}
-          RETURNING *
+          RETURNING 
+            id, 
+            email, 
+            sector, 
+            category, 
+            priority, 
+            description,
+            quantity, 
+            budget, 
+            observations, 
+            date, 
+            status,
+            resolved_by as "resolvedBy",
+            resolved_by_email as "resolvedByEmail",
+            resolved_at as "resolvedAt",
+            username as "user",
+            created_at as "createdAt",
+            updated_at as "updatedAt"
         `
 
         if (result.length === 0) {
