@@ -1,45 +1,29 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { getToken } from "next-auth/jwt"
 
-export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request })
-  const isAuthenticated = !!token
-  const isAdmin = token?.role === "admin"
+export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
+  const isPublicPath = path === "/login" || path === "/register" || path === "/"
 
-  // Rutas públicas (accesibles sin autenticación)
-  const publicRoutes = ["/", "/login", "/register", "/forgot-password"]
-  if (publicRoutes.includes(path)) {
-    // Si el usuario ya está autenticado y trata de acceder a login/register, redirigir
-    if (isAuthenticated && (path === "/login" || path === "/register")) {
-      return NextResponse.redirect(new URL(isAdmin ? "/admin/dashboard" : "/dashboard", request.url))
+  const token = request.cookies.get("user-token")?.value || ""
+  const userType = request.cookies.get("user-type")?.value || ""
+
+  // Si el usuario intenta acceder a una ruta pública estando autenticado
+  if (isPublicPath && token) {
+    if (userType === "admin") {
+      return NextResponse.redirect(new URL("/admin/dashboard", request.url))
     }
-    return NextResponse.next()
+    return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  // Rutas de administrador
-  if (path.startsWith("/admin")) {
-    if (!isAuthenticated) {
-      return NextResponse.redirect(new URL("/login", request.url))
-    }
-    if (!isAdmin) {
-      return NextResponse.redirect(new URL("/dashboard", request.url))
-    }
-    return NextResponse.next()
-  }
-
-  // Rutas de usuario
-  if (path.startsWith("/dashboard")) {
-    if (!isAuthenticated) {
-      return NextResponse.redirect(new URL("/login", request.url))
-    }
-    return NextResponse.next()
-  }
-
-  // Cualquier otra ruta requiere autenticación
-  if (!isAuthenticated) {
+  // Si el usuario intenta acceder a una ruta protegida sin estar autenticado
+  if (!isPublicPath && !token) {
     return NextResponse.redirect(new URL("/login", request.url))
+  }
+
+  // Si el usuario intenta acceder a rutas de admin sin ser admin
+  if (path.startsWith("/admin") && userType !== "admin") {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
   return NextResponse.next()
@@ -47,13 +31,10 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Coincide con todas las rutas excepto:
-     * 1. /api (rutas API)
-     * 2. /_next (archivos Next.js)
-     * 3. /fonts (archivos estáticos)
-     * 4. /favicon.ico (favicon)
-     */
-    "/((?!api|_next|fonts|favicon.ico).*)",
+    "/",
+    "/login",
+    "/register",
+    "/dashboard/:path*",
+    "/admin/:path*",
   ],
 }

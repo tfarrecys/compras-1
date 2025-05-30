@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
+import Cookies from "js-cookie"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -35,33 +36,41 @@ export default function LoginPage() {
       const admin = adminCredentials.find((admin) => admin.email === email && admin.password === password)
 
       if (admin) {
+        // Establecer cookies de autenticación
+        Cookies.set("user-token", btoa(admin.email), { expires: 7 })
+        Cookies.set("user-type", "admin", { expires: 7 })
+        
         localStorage.setItem("userType", "admin")
         localStorage.setItem("userEmail", email)
         localStorage.setItem("userName", admin.name)
+        
         toast({
           title: "✅ Inicio de sesión exitoso",
           description: `Bienvenido ${admin.name}. Redirigiendo al panel de administración...`,
           duration: 3000,
         })
-        setTimeout(() => {
-          router.push("/admin/dashboard")
-        }, 1500)
+        
+        router.push("/admin/dashboard")
       } else {
         // Check if user exists and password matches
         const user = registeredUsers.find((u) => u.email === email && u.password === password)
 
         if (user) {
+          // Establecer cookies de autenticación
+          Cookies.set("user-token", btoa(user.email), { expires: 7 })
+          Cookies.set("user-type", "user", { expires: 7 })
+          
           localStorage.setItem("userType", "user")
           localStorage.setItem("userEmail", email)
           localStorage.setItem("userName", user.name)
+          
           toast({
             title: "✅ Inicio de sesión exitoso",
             description: `Bienvenido ${user.name}. Redirigiendo a su panel...`,
             duration: 3000,
           })
-          setTimeout(() => {
-            router.push("/dashboard")
-          }, 1500)
+          
+          router.push("/dashboard")
         } else {
           throw new Error("Invalid credentials")
         }

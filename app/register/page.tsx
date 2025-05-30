@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
+import Cookies from "js-cookie"
 
 export default function RegisterPage() {
   const [name, setName] = useState("")
@@ -64,6 +65,10 @@ export default function RegisterPage() {
       // Save to localStorage
       localStorage.setItem("users", JSON.stringify(existingUsers))
 
+      // Establecer cookies de autenticación
+      Cookies.set("user-token", btoa(email), { expires: 7 })
+      Cookies.set("user-type", "user", { expires: 7 })
+
       // Auto-login the user
       localStorage.setItem("userType", "user")
       localStorage.setItem("userEmail", email)
@@ -75,9 +80,7 @@ export default function RegisterPage() {
         duration: 3000,
       })
 
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 1500)
+      router.push("/dashboard")
     } catch (error) {
       if (error.message === "User already exists") {
         toast({
