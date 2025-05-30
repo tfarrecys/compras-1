@@ -108,20 +108,25 @@ export default function NewRequestPage() {
         body: JSON.stringify(newRequest),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Error al crear la solicitud")
+        throw new Error(data.details || data.error || "Error al crear la solicitud")
+      }
+
+      if (!data.id) {
+        throw new Error("La respuesta del servidor no incluye el ID de la solicitud")
       }
 
       toast({
         title: "✅ Solicitud enviada",
-        description: `Su solicitud ${newRequest.id} ha sido enviada correctamente. Redirigiendo...`,
+        description: `Su solicitud ${data.id} ha sido enviada correctamente. Redirigiendo...`,
         duration: 4000,
       })
 
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 2000)
+      // Esperar un momento antes de redirigir
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      router.push("/dashboard")
     } catch (error) {
       console.error("Error creating request:", error)
       toast({

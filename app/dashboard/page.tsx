@@ -32,17 +32,26 @@ export default function DashboardPage() {
           return
         }
 
-        const response = await fetch(`/api/requests?email=${userEmail}&userType=${userType}`)
-        if (!response.ok) {
-          throw new Error("Error al cargar las solicitudes")
-        }
+        console.log('Iniciando fetch de solicitudes:', { userEmail, userType })
+
+        const response = await fetch(`/api/requests?email=${encodeURIComponent(userEmail)}&userType=${encodeURIComponent(userType || '')}`)
         const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.details || data.error || "Error al cargar las solicitudes")
+        }
+
+        if (!Array.isArray(data)) {
+          throw new Error("La respuesta del servidor no es un array de solicitudes")
+        }
+
+        console.log('Solicitudes recibidas:', data.length)
         setRequests(data)
       } catch (error) {
         console.error("Error loading requests:", error)
         toast({
           title: "❌ Error",
-          description: "No se pudieron cargar las solicitudes",
+          description: error instanceof Error ? error.message : "No se pudieron cargar las solicitudes",
           variant: "destructive",
         })
       }
