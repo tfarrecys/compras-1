@@ -1,0 +1,56 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // o "mysql", "sqlite", etc.
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  sector    String
+  role      String   @default("user") // "user" o "admin"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  requests  Request[]
+}
+
+model Request {
+  id           String   @id @default(cuid())
+  requestId    String   @unique // REQ-123 formato personalizado
+  description  String
+  sector       String
+  category     String
+  priority     String
+  quantity     String?
+  budget       String?
+  observations String?
+  status       String   @default("Pendiente")
+  date         DateTime @default(now())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  resolvedById String?
+  resolvedBy   User?    @relation("ResolvedRequests", fields: [resolvedById], references: [id])
+  resolvedAt   DateTime?
+  messages     Message[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  requestId String
+  request   Request  @relation(fields: [requestId], references: [id])
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  senderType String  // "user" o "admin"
+  createdAt DateTime @default(now())
+}
