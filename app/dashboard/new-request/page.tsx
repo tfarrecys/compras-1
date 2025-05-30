@@ -47,6 +47,37 @@ export default function NewRequestPage() {
     try {
       const userEmail = localStorage.getItem("userEmail") || email
 
+      // Validar campos requeridos
+      if (!sector) {
+        toast({
+          title: "❌ Error",
+          description: "El sector es requerido",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+
+      if (!description) {
+        toast({
+          title: "❌ Error",
+          description: "La descripción es requerida",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+
+      if (!userEmail) {
+        toast({
+          title: "❌ Error",
+          description: "El email es requerido",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+
       // Create new request object
       const newRequest = {
         id: `REQ-${Date.now()}`,

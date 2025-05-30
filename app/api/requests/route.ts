@@ -52,9 +52,26 @@ export async function POST(req: Request) {
   try {
     const data = await req.json()
     
+    // Validar campos requeridos
+    if (!data.email || !data.sector || !data.description) {
+      return NextResponse.json(
+        { error: "Faltan campos requeridos: email, sector y descripción son obligatorios" },
+        { status: 400 }
+      )
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(data.email)) {
+      return NextResponse.json(
+        { error: "Formato de email inválido" },
+        { status: 400 }
+      )
+    }
+
     const request = await db.request.create({
       data: {
-        id: data.id,
+        id: data.id || `REQ-${Date.now()}`,
         email: data.email,
         sector: data.sector,
         category: data.category,
@@ -63,7 +80,7 @@ export async function POST(req: Request) {
         quantity: data.quantity,
         budget: data.budget,
         observations: data.observations,
-        date: data.date,
+        date: data.date || new Date().toISOString().split("T")[0],
         status: "Pendiente",
         user: data.user
       }
