@@ -9,7 +9,7 @@ export async function GET() {
     )
 
     if (!result.success) {
-      console.error("Error fetching requests:", result.error)
+      console.error("Error al cargar solicitudes:", result.error)
       return NextResponse.json(
         { error: "Error al cargar las solicitudes", details: result.error },
         { status: 500 }
@@ -18,9 +18,9 @@ export async function GET() {
 
     return NextResponse.json(result.data)
   } catch (error) {
-    console.error("Error in GET /api/requests:", error)
+    console.error("Error en GET /api/requests:", error)
     return NextResponse.json(
-      { error: "Error interno del servidor", details: error instanceof Error ? error.message : String(error) },
+      { error: "Error interno del servidor" },
       { status: 500 }
     )
   }
@@ -39,6 +39,7 @@ export async function POST(request: Request) {
       )
     }
 
+    // Insertar nueva solicitud
     const result = await executeQuery(
       `INSERT INTO requests (
         id, email, sector, category, priority, description, 
@@ -50,53 +51,31 @@ export async function POST(request: Request) {
         data.id,
         data.email,
         data.sector,
-        data.category,
-        data.priority,
+        data.category || null,
+        data.priority || null,
         data.description,
-        data.quantity,
-        data.budget,
-        data.observations,
+        data.quantity || null,
+        data.budget || null,
+        data.observations || null,
         data.date,
-        data.status || 'Pendiente',
-        data.user
+        'Pendiente',
+        data.user || null
       ]
     )
 
     if (!result.success) {
-      console.error("Error creating request:", result.error)
+      console.error("Error al crear solicitud:", result.error)
       return NextResponse.json(
         { error: "Error al crear la solicitud", details: result.error },
         { status: 500 }
       )
     }
 
-    // Enviar notificación por email
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "new-request",
-          requestId: data.id,
-          userEmail: data.email,
-          userName: data.user || "Usuario",
-          description: data.description,
-          sector: data.sector,
-          category: data.category,
-          priority: data.priority,
-        }),
-      })
-    } catch (error) {
-      console.error("Error sending email notification:", error)
-    }
-
     return NextResponse.json(result.data[0])
   } catch (error) {
-    console.error("Error in POST /api/requests:", error)
+    console.error("Error en POST /api/requests:", error)
     return NextResponse.json(
-      { error: "Error interno del servidor", details: error instanceof Error ? error.message : String(error) },
+      { error: "Error interno del servidor" },
       { status: 500 }
     )
   }
@@ -116,11 +95,17 @@ export async function PUT(req: Request) {
            "updatedAt" = NOW()
        WHERE id = $5
        RETURNING *`,
-      [data.status, data.resolvedBy, data.resolvedByEmail, data.resolvedAt, data.id]
+      [
+        data.status,
+        data.resolvedBy || null,
+        data.resolvedByEmail || null,
+        data.resolvedAt || null,
+        data.id
+      ]
     )
 
     if (!result.success) {
-      console.error("Error updating request:", result.error)
+      console.error("Error al actualizar solicitud:", result.error)
       return NextResponse.json(
         { error: "Error al actualizar la solicitud", details: result.error },
         { status: 500 }
@@ -136,9 +121,9 @@ export async function PUT(req: Request) {
 
     return NextResponse.json(result.data[0])
   } catch (error) {
-    console.error("Error in PUT /api/requests:", error)
+    console.error("Error en PUT /api/requests:", error)
     return NextResponse.json(
-      { error: "Error interno del servidor", details: error instanceof Error ? error.message : String(error) },
+      { error: "Error interno del servidor" },
       { status: 500 }
     )
   }

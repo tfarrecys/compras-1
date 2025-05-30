@@ -1,35 +1,23 @@
-import { PrismaClient } from "@prisma/client"
-import { neon, neonConfig } from "@neondatabase/serverless"
 import { Pool } from "@neondatabase/serverless"
-
-declare global {
-  var prisma: PrismaClient | undefined
-}
-
-const prisma = global.prisma || new PrismaClient({
-  log: ["query"],
-})
-
-if (process.env.NODE_ENV !== "production") global.prisma = prisma
-
-// Configurar SSL y cache para Neon
-neonConfig.fetchConnectionCache = true
-neonConfig.useSecureWebSocket = true // Forzar WebSocket seguro
-neonConfig.pipelineTLS = true // Optimizar conexión TLS
 
 // Configuración del pool de conexiones
 const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  maxConnections: 10, // Limitar conexiones máximas
-  connectionTimeoutMillis: 10000, // Timeout de 10 segundos
-  idleTimeoutMillis: 60000 // Timeout de conexiones inactivas
+  maxConnections: 10,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 60000
 })
 
 // Función helper para ejecutar queries
 export async function executeQuery(query: string, params?: any[]) {
   try {
-    const result = await pool.query(query, params)
-    return { success: true, data: result.rows }
+    const client = await pool.connect()
+    try {
+      const result = await client.query(query, params)
+      return { success: true, data: result.rows }
+    } finally {
+      client.release()
+    }
   } catch (error) {
     console.error('Error executing query:', error)
     return { 
@@ -39,4 +27,4 @@ export async function executeQuery(query: string, params?: any[]) {
   }
 }
 
-export { prisma, pool }
+export { pool }
