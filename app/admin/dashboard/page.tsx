@@ -281,10 +281,10 @@ export default function AdminDashboardPage() {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="active">
-              <AdminRequestTable requests={activeRequests} onStatusUpdate={updateRequestStatus} />
+              <AdminRequestTable requests={activeRequests} updateStatus={updateRequestStatus} />
             </TabsContent>
             <TabsContent value="finished">
-              <AdminRequestTable requests={finishedRequests} onStatusUpdate={updateRequestStatus} />
+              <AdminRequestTable requests={finishedRequests} updateStatus={updateRequestStatus} />
             </TabsContent>
           </Tabs>
         </div>

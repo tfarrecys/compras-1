@@ -31,14 +31,17 @@ export function UserNav() {
   }
 
   const handleLogout = () => {
-    // Eliminar datos del localStorage
-    localStorage.removeItem("userType")
-    localStorage.removeItem("userEmail")
-    localStorage.removeItem("userName")
+    // Limpiar localStorage
+    localStorage.clear()
     
-    // Eliminar cookies
+    // Limpiar cookies específicas
     Cookies.remove("user-token")
     Cookies.remove("user-type")
+    
+    // Limpiar todas las cookies por si acaso
+    document.cookie.split(";").forEach(function(c) { 
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/")
+    })
     
     toast({
       title: "👋 Sesión cerrada",
