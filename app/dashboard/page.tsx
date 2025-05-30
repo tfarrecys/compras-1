@@ -1,30 +1,68 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UserNav } from "@/components/user-nav"
 import { RequestTable } from "@/components/request-table"
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
+import Link from "next/link"
+import { toast } from "@/components/ui/use-toast"
+import type { Request } from "@/types/request"
 
 export default function DashboardPage() {
-  const [requests, setRequests] = useState([])
+  const [requests, setRequests] = useState<Request[]>([])
   const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
-    const userEmail = window?.localStorage?.getItem("userEmail")
-    const allRequests = JSON.parse(window?.localStorage?.getItem("requests") || "[]")
+    const fetchRequests = async () => {
+      try {
+        const userEmail = localStorage.getItem("userEmail")
+        const userType = localStorage.getItem("userType")
+        
+        if (!userEmail) {
+          toast({
+            title: "❌ Error",
+            description: "No se pudo identificar al usuario",
+            variant: "destructive",
+          })
+          return
+        }
 
-    // Filter requests for current user
-    const userRequests = allRequests.filter((req) => req.email === userEmail)
-    setRequests(userRequests)
+        const response = await fetch(\`/api/requests?email=\${userEmail}&userType=\${userType}\`)
+        if (!response.ok) {
+          throw new Error("Error al cargar las solicitudes")
+        }
+        const data = await response.json()
+        setRequests(data)
+      } catch (error) {
+        console.error("Error loading requests:", error)
+        toast({
+          title: "❌ Error",
+          description: "No se pudieron cargar las solicitudes",
+          variant: "destructive",
+        })
+      }
+    }
+
+    fetchRequests()
+
+    // Actualizar cada 30 segundos
+    const interval = setInterval(fetchRequests, 30000)
+
+    return () => clearInterval(interval)
   }, [])
 
   if (!isClient) {
     return <div>Cargando...</div>
   }
+
+  // Filtrar solicitudes por estado
+  const pendingRequests = requests.filter((r) => r.status === "Pendiente")
+  const inProgressRequests = requests.filter((r) => ["En Revisión", "Aprobado"].includes(r.status))
+  const finishedRequests = requests.filter((r) => r.status === "Finalizado")
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -47,7 +85,7 @@ export default function DashboardPage() {
               <path d="M3 6h18" />
               <path d="M16 10a4 4 0 0 1-8 0" />
             </svg>
-            Sistema de Compras
+            Panel de Usuario
           </Link>
           <UserNav />
         </div>
@@ -55,9 +93,12 @@ export default function DashboardPage() {
       <main className="flex-1 container px-4 py-6 sm:px-6">
         <div className="flex flex-col space-y-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-tight text-blue-900">Panel de Usuario</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-blue-900">Mis Solicitudes</h1>
             <Link href="/dashboard/new-request">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">Nueva Solicitud</Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva Solicitud
+              </Button>
             </Link>
           </div>
 
@@ -75,9 +116,7 @@ export default function DashboardPage() {
                 <CardTitle className="text-sm font-medium text-blue-800">En Proceso</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">
-                  {requests.filter((r) => r.status === "En Revisión").length}
-                </div>
+                <div className="text-2xl font-bold text-blue-600">{inProgressRequests.length}</div>
               </CardContent>
             </Card>
             <Card className="bg-white/70 backdrop-blur-sm border-blue-200">
@@ -85,9 +124,7 @@ export default function DashboardPage() {
                 <CardTitle className="text-sm font-medium text-blue-800">Finalizadas</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {requests.filter((r) => r.status === "Finalizado").length}
-                </div>
+                <div className="text-2xl font-bold text-green-600">{finishedRequests.length}</div>
               </CardContent>
             </Card>
           </div>
@@ -97,10 +134,7 @@ export default function DashboardPage() {
               <TabsTrigger value="all" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900">
                 Todas
               </TabsTrigger>
-              <TabsTrigger
-                value="pending"
-                className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900"
-              >
+              <TabsTrigger value="pending" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900">
                 Sin Revisar
               </TabsTrigger>
               <TabsTrigger
@@ -110,7 +144,7 @@ export default function DashboardPage() {
                 En Proceso
               </TabsTrigger>
               <TabsTrigger
-                value="completed"
+                value="finished"
                 className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900"
               >
                 Finalizadas
@@ -120,13 +154,13 @@ export default function DashboardPage() {
               <RequestTable requests={requests} />
             </TabsContent>
             <TabsContent value="pending">
-              <RequestTable requests={requests.filter((r) => r.status === "Pendiente")} />
+              <RequestTable requests={pendingRequests} />
             </TabsContent>
             <TabsContent value="in-progress">
-              <RequestTable requests={requests.filter((r) => r.status === "En Revisión")} />
+              <RequestTable requests={inProgressRequests} />
             </TabsContent>
-            <TabsContent value="completed">
-              <RequestTable requests={requests.filter((r) => r.status === "Finalizado")} />
+            <TabsContent value="finished">
+              <RequestTable requests={finishedRequests} />
             </TabsContent>
           </Tabs>
         </div>

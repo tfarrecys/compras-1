@@ -63,22 +63,18 @@ export default function NewRequestPage() {
         user: localStorage.getItem("userName") || userEmail.split("@")[0]
       }
 
-      // Get existing requests from localStorage
-      const existingRequests = JSON.parse(localStorage.getItem("requests") || "[]")
-      console.log("Solicitudes existentes:", existingRequests)
+      // Enviar solicitud a la API
+      const response = await fetch("/api/requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newRequest),
+      })
 
-      // Add new request
-      existingRequests.push(newRequest)
-      console.log("Nueva solicitud agregada:", newRequest)
-      console.log("Todas las solicitudes:", existingRequests)
-
-      // Save back to localStorage
-      localStorage.setItem("requests", JSON.stringify(existingRequests))
-      console.log("Guardado en localStorage completado")
-
-      // Disparar evento de storage para notificar a otros componentes
-      window.dispatchEvent(new Event("storage"))
-      console.log("Evento storage disparado")
+      if (!response.ok) {
+        throw new Error("Error al crear la solicitud")
+      }
 
       // Send email notification to admin
       try {
@@ -123,6 +119,7 @@ export default function NewRequestPage() {
         router.push("/dashboard")
       }, 2000)
     } catch (error) {
+      console.error("Error creating request:", error)
       toast({
         title: "❌ Error",
         description: "No se pudo enviar la solicitud. Intente nuevamente.",

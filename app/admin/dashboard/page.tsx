@@ -37,41 +37,44 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     setIsClient(true)
-    const loadRequests = () => {
-      console.log("Cargando solicitudes...")
-      try {
-        const allRequests = JSON.parse(localStorage.getItem("requests") || "[]")
-        console.log("Solicitudes cargadas:", allRequests)
-        setRequests(allRequests)
-        setFilteredRequests(allRequests)
-      } catch (error) {
-        console.error("Error al cargar solicitudes:", error)
-      }
-    }
-
-    // Cargar solicitudes inicialmente
-    loadRequests()
-
-    // Función para manejar cambios en el storage
-    const handleStorageChange = (e: StorageEvent) => {
-      console.log("Evento storage recibido", e)
-      if (e.key === "requests") {
-        console.log("Cambio detectado en requests")
-        loadRequests()
-      }
-    }
-
-    // Escuchar cambios en el localStorage
-    window.addEventListener("storage", handleStorageChange)
     
-    // También actualizar cada 5 segundos por si acaso
-    const interval = setInterval(loadRequests, 5000)
+    const fetchRequests = async () => {
+      try {
+        const userEmail = localStorage.getItem("userEmail")
+        const userType = localStorage.getItem("userType")
+        
+        if (!userEmail || userType !== "admin") {
+          toast({
+            title: "❌ Error",
+            description: "No tiene permisos para ver todas las solicitudes",
+            variant: "destructive",
+          })
+          return
+        }
 
-    // Limpiar event listeners y interval
-    return () => {
-      window.removeEventListener("storage", handleStorageChange)
-      clearInterval(interval)
+        const response = await fetch(`/api/requests?email=${userEmail}&userType=${userType}`)
+        if (!response.ok) {
+          throw new Error("Error al cargar las solicitudes")
+        }
+        const data = await response.json()
+        setRequests(data)
+        setFilteredRequests(data)
+      } catch (error) {
+        console.error("Error loading requests:", error)
+        toast({
+          title: "❌ Error",
+          description: "No se pudieron cargar las solicitudes",
+          variant: "destructive",
+        })
+      }
     }
+
+    fetchRequests()
+
+    // Actualizar cada 30 segundos
+    const interval = setInterval(fetchRequests, 30000)
+
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -91,31 +94,51 @@ export default function AdminDashboardPage() {
   }, [requests, statusFilter, sectorFilter])
 
   const updateRequestStatus = async (id: string, newStatus: string) => {
-    if (!window?.localStorage) return
-
-    const currentAdmin = window.localStorage.getItem("userName") || "Administrador"
-    const adminEmail = window.localStorage.getItem("userEmail") || "admin@compras.com"
-
-    const updatedRequests = requests.map((request) => {
-      if (request.id === id) {
-        return {
-          ...request,
-          status: newStatus,
-          resolvedBy: newStatus !== "Pendiente" ? currentAdmin : undefined,
-          resolvedByEmail: newStatus !== "Pendiente" ? adminEmail : undefined,
-          resolvedAt: newStatus !== "Pendiente" ? new Date().toISOString() : undefined,
-        }
+    try {
+      const userEmail = localStorage.getItem("userEmail")
+      const userType = localStorage.getItem("userType")
+      
+      if (!userEmail || userType !== "admin") {
+        toast({
+          title: "❌ Error",
+          description: "No tiene permisos para actualizar solicitudes",
+          variant: "destructive",
+        })
+        return
       }
-      return request
-    })
 
-    setRequests(updatedRequests)
-    window.localStorage.setItem("requests", JSON.stringify(updatedRequests))
+      const currentAdmin = localStorage.getItem("userName") || "Administrador"
+      const adminEmail = localStorage.getItem("userEmail") || "admin@compras.com"
 
-    // Find the updated request to get user details
-    const updatedRequest = updatedRequests.find((req) => req.id === id)
+      const updateData = {
+        id,
+        status: newStatus,
+        resolvedBy: newStatus !== "Pendiente" ? currentAdmin : undefined,
+        resolvedByEmail: newStatus !== "Pendiente" ? adminEmail : undefined,
+        resolvedAt: newStatus !== "Pendiente" ? new Date().toISOString() : undefined,
+      }
 
-    if (updatedRequest) {
+      const response = await fetch("/api/requests", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Error al actualizar el estado")
+      }
+
+      const updatedRequest = await response.json()
+
+      // Actualizar el estado local
+      const updatedRequests = requests.map((request) =>
+        request.id === id ? { ...request, ...updateData } : request
+      )
+      setRequests(updatedRequests)
+      setFilteredRequests(updatedRequests)
+
       // Send email notification to user
       try {
         await fetch("/api/send-email", {
@@ -126,7 +149,7 @@ export default function AdminDashboardPage() {
           body: JSON.stringify({
             type: "status-update",
             userEmail: updatedRequest.email,
-            userName: updatedRequest.email.split("@")[0], // Extract name from email
+            userName: updatedRequest.user,
             requestId: id,
             newStatus: newStatus,
             requestDescription: updatedRequest.description,
@@ -146,14 +169,22 @@ export default function AdminDashboardPage() {
           duration: 4000,
         })
       }
-    }
 
-    // Show success message
-    toast({
-      title: "✅ Estado actualizado",
-      description: `El estado de la solicitud ${id} ha sido actualizado por ${currentAdmin}`,
-      duration: 4000,
-    })
+      // Show success message
+      toast({
+        title: "✅ Estado actualizado",
+        description: `El estado de la solicitud ${id} ha sido actualizado por ${currentAdmin}`,
+        duration: 4000,
+      })
+    } catch (error) {
+      console.error("Error updating request status:", error)
+      toast({
+        title: "❌ Error",
+        description: "No se pudo actualizar el estado de la solicitud",
+        variant: "destructive",
+        duration: 4000,
+      })
+    }
   }
 
   const clearFilters = () => {
