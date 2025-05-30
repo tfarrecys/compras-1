@@ -65,15 +65,20 @@ export default function NewRequestPage() {
 
       // Get existing requests from localStorage
       const existingRequests = JSON.parse(localStorage.getItem("requests") || "[]")
+      console.log("Solicitudes existentes:", existingRequests)
 
       // Add new request
       existingRequests.push(newRequest)
+      console.log("Nueva solicitud agregada:", newRequest)
+      console.log("Todas las solicitudes:", existingRequests)
 
       // Save back to localStorage
       localStorage.setItem("requests", JSON.stringify(existingRequests))
+      console.log("Guardado en localStorage completado")
 
       // Disparar evento de storage para notificar a otros componentes
       window.dispatchEvent(new Event("storage"))
+      console.log("Evento storage disparado")
 
       // Send email notification to admin
       try {

@@ -38,20 +38,39 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     setIsClient(true)
     const loadRequests = () => {
-      const allRequests = JSON.parse(window?.localStorage?.getItem("requests") || "[]")
-      setRequests(allRequests)
-      setFilteredRequests(allRequests)
+      console.log("Cargando solicitudes...")
+      try {
+        const allRequests = JSON.parse(localStorage.getItem("requests") || "[]")
+        console.log("Solicitudes cargadas:", allRequests)
+        setRequests(allRequests)
+        setFilteredRequests(allRequests)
+      } catch (error) {
+        console.error("Error al cargar solicitudes:", error)
+      }
     }
 
     // Cargar solicitudes inicialmente
     loadRequests()
 
-    // Escuchar cambios en el localStorage
-    window.addEventListener("storage", loadRequests)
+    // Función para manejar cambios en el storage
+    const handleStorageChange = (e: StorageEvent) => {
+      console.log("Evento storage recibido", e)
+      if (e.key === "requests") {
+        console.log("Cambio detectado en requests")
+        loadRequests()
+      }
+    }
 
-    // Limpiar el event listener cuando el componente se desmonte
+    // Escuchar cambios en el localStorage
+    window.addEventListener("storage", handleStorageChange)
+    
+    // También actualizar cada 5 segundos por si acaso
+    const interval = setInterval(loadRequests, 5000)
+
+    // Limpiar event listeners y interval
     return () => {
-      window.removeEventListener("storage", loadRequests)
+      window.removeEventListener("storage", handleStorageChange)
+      clearInterval(interval)
     }
   }, [])
 
