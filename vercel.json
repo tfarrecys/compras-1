@@ -2,10 +2,5 @@
   "installCommand": "pnpm install",
   "buildCommand": "prisma generate && next build",
   "framework": "nextjs",
-  "regions": ["iad1"],
-  "env": {
-    "RESEND_API_KEY": {
-      "description": "API Key de Resend para envío de emails (opcional)"
-    }
-  }
+  "regions": ["iad1"]
 } 
