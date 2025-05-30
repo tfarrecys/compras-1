@@ -1,26 +1,30 @@
 import { NextResponse } from "next/server"
-import { executeQuery } from "@/lib/db"
+import { sql, testConnection } from "@/lib/db"
 
 // Obtener solicitudes
 export async function GET() {
   try {
-    const result = await executeQuery(
-      'SELECT * FROM requests ORDER BY "createdAt" DESC'
-    )
-
-    if (!result.success) {
-      console.error("Error al cargar solicitudes:", result.error)
+    // Verificar conexión
+    const isConnected = await testConnection()
+    if (!isConnected) {
+      console.error("No se pudo conectar a la base de datos")
       return NextResponse.json(
-        { error: "Error al cargar las solicitudes", details: result.error },
+        { error: "Error de conexión a la base de datos" },
         { status: 500 }
       )
     }
 
-    return NextResponse.json(result.data)
+    // Obtener solicitudes
+    const requests = await sql`
+      SELECT * FROM requests 
+      ORDER BY "createdAt" DESC
+    `
+
+    return NextResponse.json(requests)
   } catch (error) {
-    console.error("Error en GET /api/requests:", error)
+    console.error("Error al obtener solicitudes:", error)
     return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { error: "Error al cargar las solicitudes" },
       { status: 500 }
     )
   }
@@ -39,43 +43,26 @@ export async function POST(request: Request) {
       )
     }
 
-    // Insertar nueva solicitud
-    const result = await executeQuery(
-      `INSERT INTO requests (
-        id, email, sector, category, priority, description, 
+    // Insertar solicitud
+    const result = await sql`
+      INSERT INTO requests (
+        id, email, sector, category, priority, description,
         quantity, budget, observations, date, status, user,
         "createdAt", "updatedAt"
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
-      RETURNING *`,
-      [
-        data.id,
-        data.email,
-        data.sector,
-        data.category || null,
-        data.priority || null,
-        data.description,
-        data.quantity || null,
-        data.budget || null,
-        data.observations || null,
-        data.date,
-        'Pendiente',
-        data.user || null
-      ]
-    )
-
-    if (!result.success) {
-      console.error("Error al crear solicitud:", result.error)
-      return NextResponse.json(
-        { error: "Error al crear la solicitud", details: result.error },
-        { status: 500 }
+      ) VALUES (
+        ${data.id}, ${data.email}, ${data.sector}, ${data.category || null},
+        ${data.priority || null}, ${data.description}, ${data.quantity || null},
+        ${data.budget || null}, ${data.observations || null}, ${data.date},
+        'Pendiente', ${data.user || null}, NOW(), NOW()
       )
-    }
+      RETURNING *
+    `
 
-    return NextResponse.json(result.data[0])
+    return NextResponse.json(result[0])
   } catch (error) {
-    console.error("Error en POST /api/requests:", error)
+    console.error("Error al crear solicitud:", error)
     return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { error: "Error al crear la solicitud" },
       { status: 500 }
     )
   }
@@ -86,44 +73,29 @@ export async function PUT(req: Request) {
   try {
     const data = await req.json()
     
-    const result = await executeQuery(
-      `UPDATE requests
-       SET status = $1,
-           resolvedBy = $2,
-           resolvedByEmail = $3,
-           resolvedAt = $4,
-           "updatedAt" = NOW()
-       WHERE id = $5
-       RETURNING *`,
-      [
-        data.status,
-        data.resolvedBy || null,
-        data.resolvedByEmail || null,
-        data.resolvedAt || null,
-        data.id
-      ]
-    )
+    const result = await sql`
+      UPDATE requests
+      SET status = ${data.status},
+          resolvedBy = ${data.resolvedBy || null},
+          resolvedByEmail = ${data.resolvedByEmail || null},
+          resolvedAt = ${data.resolvedAt || null},
+          "updatedAt" = NOW()
+      WHERE id = ${data.id}
+      RETURNING *
+    `
 
-    if (!result.success) {
-      console.error("Error al actualizar solicitud:", result.error)
-      return NextResponse.json(
-        { error: "Error al actualizar la solicitud", details: result.error },
-        { status: 500 }
-      )
-    }
-
-    if (result.data.length === 0) {
+    if (result.length === 0) {
       return NextResponse.json(
         { error: "Solicitud no encontrada" },
         { status: 404 }
       )
     }
 
-    return NextResponse.json(result.data[0])
+    return NextResponse.json(result[0])
   } catch (error) {
-    console.error("Error en PUT /api/requests:", error)
+    console.error("Error al actualizar solicitud:", error)
     return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { error: "Error al actualizar la solicitud" },
       { status: 500 }
     )
   }
