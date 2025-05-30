@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast"
 
 export default function NewRequestPage() {
-  const [email, setEmail] = useState("")
+  const { data: session } = useSession()
   const [sector, setSector] = useState("")
   const [category, setCategory] = useState("")
   const [priority, setPriority] = useState("")
@@ -21,10 +21,14 @@ export default function NewRequestPage() {
   const [budget, setBudget] = useState("")
   const [observations, setObservations] = useState("")
   const [description, setDescription] = useState("")
-  const [details, setDetails] = useState("")
-  const [urgency, setUrgency] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+
+  // Si no hay sesión, redirigir al login
+  if (!session?.user) {
+    router.push("/login")
+    return null
+  }
 
   const sectors = [
     "Chichinales",
@@ -45,8 +49,6 @@ export default function NewRequestPage() {
     setIsLoading(true)
 
     try {
-      const userEmail = localStorage.getItem("userEmail") || email
-
       // Validar campos requeridos
       if (!sector) {
         toast({
@@ -68,20 +70,10 @@ export default function NewRequestPage() {
         return
       }
 
-      if (!userEmail) {
-        toast({
-          title: "❌ Error",
-          description: "El email es requerido",
-          variant: "destructive",
-        })
-        setIsLoading(false)
-        return
-      }
-
       // Create new request object
       const newRequest = {
         id: `REQ-${Date.now()}`,
-        email: userEmail,
+        email: session.user.email,
         sector,
         category,
         priority,
@@ -91,7 +83,7 @@ export default function NewRequestPage() {
         observations,
         date: new Date().toISOString().split("T")[0],
         status: "Pendiente",
-        user: localStorage.getItem("userName") || userEmail.split("@")[0]
+        user: session.user.name || session.user.email.split("@")[0]
       }
 
       // Enviar solicitud a la API
@@ -104,7 +96,8 @@ export default function NewRequestPage() {
       })
 
       if (!response.ok) {
-        throw new Error("Error al crear la solicitud")
+        const error = await response.json()
+        throw new Error(error.error || "Error al crear la solicitud")
       }
 
       // Send email notification to admin
@@ -117,8 +110,8 @@ export default function NewRequestPage() {
           body: JSON.stringify({
             type: "new-request",
             requestId: newRequest.id,
-            userEmail: userEmail,
-            userName: localStorage.getItem("userName") || "Usuario",
+            userEmail: session.user.email,
+            userName: session.user.name || "Usuario",
             description: description,
             sector: sector,
             category: category,
@@ -153,7 +146,7 @@ export default function NewRequestPage() {
       console.error("Error creating request:", error)
       toast({
         title: "❌ Error",
-        description: "No se pudo enviar la solicitud. Intente nuevamente.",
+        description: error.message || "No se pudo enviar la solicitud. Intente nuevamente.",
         variant: "destructive",
         duration: 4000,
       })
@@ -201,20 +194,6 @@ export default function NewRequestPage() {
           <form onSubmit={onSubmit}>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-blue-800">
-                    Email *
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="su.email@empresa.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="border-blue-200 focus:border-blue-400"
-                    required
-                  />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="sector" className="text-blue-800">
                     Sector *
