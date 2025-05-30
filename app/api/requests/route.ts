@@ -1,18 +1,28 @@
 import { NextResponse } from "next/server"
-import { pool } from "@/lib/db"
-import { sendNewRequestEmail } from "@/lib/email"
-import { cookies } from "next/headers"
+import { executeQuery } from "@/lib/db"
 
 // Obtener solicitudes
 export async function GET() {
   try {
-    const result = await pool.query(
+    const result = await executeQuery(
       'SELECT * FROM requests ORDER BY "createdAt" DESC'
     )
-    return NextResponse.json(result.rows)
+
+    if (!result.success) {
+      console.error("Error fetching requests:", result.error)
+      return NextResponse.json(
+        { error: "Error al cargar las solicitudes", details: result.error },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json(result.data)
   } catch (error) {
-    console.error("Error fetching requests:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    console.error("Error in GET /api/requests:", error)
+    return NextResponse.json(
+      { error: "Error interno del servidor", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    )
   }
 }
 
@@ -29,8 +39,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Insertar nueva solicitud
-    const result = await pool.query(
+    const result = await executeQuery(
       `INSERT INTO requests (
         id, email, sector, category, priority, description, 
         quantity, budget, observations, date, status, user,
@@ -52,6 +61,14 @@ export async function POST(request: Request) {
         data.user
       ]
     )
+
+    if (!result.success) {
+      console.error("Error creating request:", result.error)
+      return NextResponse.json(
+        { error: "Error al crear la solicitud", details: result.error },
+        { status: 500 }
+      )
+    }
 
     // Enviar notificación por email
     try {
@@ -75,13 +92,13 @@ export async function POST(request: Request) {
       console.error("Error sending email notification:", error)
     }
 
-    return NextResponse.json(result.rows[0])
+    return NextResponse.json(result.data[0])
   } catch (error) {
-    console.error("Error creating request:", error)
-    return NextResponse.json({ 
-      error: "Error interno del servidor",
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 })
+    console.error("Error in POST /api/requests:", error)
+    return NextResponse.json(
+      { error: "Error interno del servidor", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    )
   }
 }
 
@@ -90,7 +107,7 @@ export async function PUT(req: Request) {
   try {
     const data = await req.json()
     
-    const result = await pool.query(
+    const result = await executeQuery(
       `UPDATE requests
        SET status = $1,
            resolvedBy = $2,
@@ -102,16 +119,27 @@ export async function PUT(req: Request) {
       [data.status, data.resolvedBy, data.resolvedByEmail, data.resolvedAt, data.id]
     )
 
-    if (result.rows.length === 0) {
-      return NextResponse.json({ error: "Solicitud no encontrada" }, { status: 404 })
+    if (!result.success) {
+      console.error("Error updating request:", result.error)
+      return NextResponse.json(
+        { error: "Error al actualizar la solicitud", details: result.error },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json(result.rows[0])
+    if (result.data.length === 0) {
+      return NextResponse.json(
+        { error: "Solicitud no encontrada" },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json(result.data[0])
   } catch (error) {
-    console.error("Error updating request:", error)
-    return NextResponse.json({ 
-      error: "Error interno del servidor",
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 })
+    console.error("Error in PUT /api/requests:", error)
+    return NextResponse.json(
+      { error: "Error interno del servidor", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    )
   }
 }
