@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { initializeDatabase } from '@/lib/init-db'
 
-export async function POST() {
+async function resetDatabase() {
   try {
     const success = await initializeDatabase()
     
@@ -24,4 +24,7 @@ export async function POST() {
       success: false
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = resetDatabase
+export const POST = resetDatabase 
