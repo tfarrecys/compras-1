@@ -1,6 +1,6 @@
 import { Resend } from "resend"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 // Actualizar la configuración de email para usar tu email específico
 const EMAIL_CONFIG = {
@@ -11,6 +11,16 @@ const EMAIL_CONFIG = {
 
 // Función principal para enviar emails
 async function sendEmail(to: string, subject: string, htmlContent: string, emailType: string) {
+  // Si no hay API key configurada, solo loguear y continuar
+  if (!resend) {
+    console.log('RESEND_API_KEY no configurada - Email simulado:', {
+      to,
+      subject,
+      emailType
+    })
+    return { success: true, simulated: true }
+  }
+
   try {
     // En desarrollo: todos los emails van a tu dirección
     // En producción: van a las direcciones reales

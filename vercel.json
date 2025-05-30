@@ -1,5 +1,11 @@
 {
-  "installCommand": "pnpm install --no-frozen-lockfile",
+  "installCommand": "pnpm install",
   "buildCommand": "prisma generate && next build",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "env": {
+    "RESEND_API_KEY": {
+      "description": "API Key de Resend para envío de emails (opcional)"
+    }
+  }
 } 
