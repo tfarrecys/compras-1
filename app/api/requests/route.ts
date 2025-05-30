@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server"
-import { sql } from "@/lib/db"
+import { pool } from "@/lib/db"
 import { sendNewRequestEmail } from "@/lib/email"
 import { cookies } from "next/headers"
 
 // Obtener solicitudes
 export async function GET() {
   try {
-    const requests = await sql`
-      SELECT * FROM requests 
-      ORDER BY "createdAt" DESC
-    `
-
-    return NextResponse.json(requests)
+    const result = await pool.query(
+      'SELECT * FROM requests ORDER BY "createdAt" DESC'
+    )
+    return NextResponse.json(result.rows)
   } catch (error) {
     console.error("Error fetching requests:", error)
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
@@ -32,18 +30,28 @@ export async function POST(request: Request) {
     }
 
     // Insertar nueva solicitud
-    const result = await sql`
-      INSERT INTO requests (
+    const result = await pool.query(
+      `INSERT INTO requests (
         id, email, sector, category, priority, description, 
         quantity, budget, observations, date, status, user,
         "createdAt", "updatedAt"
-      ) VALUES (
-        ${data.id}, ${data.email}, ${data.sector}, ${data.category}, ${data.priority}, ${data.description},
-        ${data.quantity}, ${data.budget}, ${data.observations}, ${data.date}, ${data.status}, ${data.user},
-        NOW(), NOW()
-      )
-      RETURNING *
-    `
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      RETURNING *`,
+      [
+        data.id,
+        data.email,
+        data.sector,
+        data.category,
+        data.priority,
+        data.description,
+        data.quantity,
+        data.budget,
+        data.observations,
+        data.date,
+        data.status || 'Pendiente',
+        data.user
+      ]
+    )
 
     // Enviar notificación por email
     try {
@@ -67,10 +75,13 @@ export async function POST(request: Request) {
       console.error("Error sending email notification:", error)
     }
 
-    return NextResponse.json(result[0])
+    return NextResponse.json(result.rows[0])
   } catch (error) {
     console.error("Error creating request:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    return NextResponse.json({ 
+      error: "Error interno del servidor",
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 })
   }
 }
 
@@ -79,22 +90,28 @@ export async function PUT(req: Request) {
   try {
     const data = await req.json()
     
-    const request = await sql`
-      UPDATE requests
-      SET status = ${data.status},
-          resolvedBy = ${data.resolvedBy},
-          resolvedByEmail = ${data.resolvedByEmail},
-          resolvedAt = ${data.resolvedAt}
-      WHERE id = ${data.id}
-      RETURNING *
-    `
+    const result = await pool.query(
+      `UPDATE requests
+       SET status = $1,
+           resolvedBy = $2,
+           resolvedByEmail = $3,
+           resolvedAt = $4,
+           "updatedAt" = NOW()
+       WHERE id = $5
+       RETURNING *`,
+      [data.status, data.resolvedBy, data.resolvedByEmail, data.resolvedAt, data.id]
+    )
 
-    return NextResponse.json(request[0])
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: "Solicitud no encontrada" }, { status: 404 })
+    }
+
+    return NextResponse.json(result.rows[0])
   } catch (error) {
     console.error("Error updating request:", error)
-    return NextResponse.json(
-      { error: "Error al actualizar la solicitud" },
-      { status: 500 }
-    )
+    return NextResponse.json({ 
+      error: "Error interno del servidor",
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 })
   }
 }
