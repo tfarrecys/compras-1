@@ -79,6 +79,7 @@ export async function POST(req: Request) {
   }
 }
 
+// Actualizar solicitud
 export async function PUT(req: Request) {
   try {
     const data = await req.json()

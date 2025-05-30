@@ -1,10 +1,10 @@
 export interface Request {
   id: string
-  description: string
   email: string
   sector: string
   category?: string
   priority?: string
+  description: string
   quantity?: string
   budget?: string
   observations?: string
@@ -14,4 +14,6 @@ export interface Request {
   resolvedByEmail?: string
   resolvedAt?: string
   user?: string
+  createdAt?: Date
+  updatedAt?: Date
 } 
