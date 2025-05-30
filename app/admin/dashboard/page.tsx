@@ -37,9 +37,22 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     setIsClient(true)
-    const allRequests = JSON.parse(window?.localStorage?.getItem("requests") || "[]")
-    setRequests(allRequests)
-    setFilteredRequests(allRequests)
+    const loadRequests = () => {
+      const allRequests = JSON.parse(window?.localStorage?.getItem("requests") || "[]")
+      setRequests(allRequests)
+      setFilteredRequests(allRequests)
+    }
+
+    // Cargar solicitudes inicialmente
+    loadRequests()
+
+    // Escuchar cambios en el localStorage
+    window.addEventListener("storage", loadRequests)
+
+    // Limpiar el event listener cuando el componente se desmonte
+    return () => {
+      window.removeEventListener("storage", loadRequests)
+    }
   }, [])
 
   useEffect(() => {

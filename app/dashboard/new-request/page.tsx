@@ -72,6 +72,9 @@ export default function NewRequestPage() {
       // Save back to localStorage
       localStorage.setItem("requests", JSON.stringify(existingRequests))
 
+      // Disparar evento de storage para notificar a otros componentes
+      window.dispatchEvent(new Event("storage"))
+
       // Send email notification to admin
       try {
         await fetch("/api/send-email", {
