@@ -11,4 +11,4 @@ if (process.env.NODE_ENV !== "production") global.prisma = db
 
 const sql = neon(process.env.DATABASE_URL!)
 
-export { sql }
+export { db, sql }

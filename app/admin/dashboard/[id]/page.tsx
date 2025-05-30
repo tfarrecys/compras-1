@@ -23,18 +23,24 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
   const router = useRouter()
 
   useEffect(() => {
-    const allRequests = JSON.parse(localStorage.getItem("requests") || "[]")
-    const foundRequest = allRequests.find((req) => req.id === params.id)
-
-    if (foundRequest) {
-      setRequest(foundRequest)
-      setStatus(foundRequest.status)
-
-      // Load messages for this request
-      const allMessages = JSON.parse(localStorage.getItem("messages") || "[]")
-      const requestMessages = allMessages.filter((msg) => msg.requestId === params.id)
-      setMessages(requestMessages)
+    const fetchRequest = async () => {
+      try {
+        const response = await fetch(`/api/requests/${params.id}`)
+        if (!response.ok) throw new Error("Error al cargar la solicitud")
+        const data = await response.json()
+        setRequest(data)
+        setStatus(data.status)
+      } catch (error) {
+        console.error("Error:", error)
+        toast({
+          title: "Error",
+          description: "No se pudo cargar la solicitud",
+          variant: "destructive",
+        })
+      }
     }
+
+    fetchRequest()
   }, [params.id])
 
   async function onSubmit(e: React.FormEvent) {
@@ -45,23 +51,24 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
       const currentAdmin = localStorage.getItem("userName") || "Administrador"
       const adminEmail = localStorage.getItem("userEmail") || "admin@compras.com"
 
-      const allRequests = JSON.parse(localStorage.getItem("requests") || "[]")
-      const updatedRequests = allRequests.map((req) => {
-        if (req.id === params.id) {
-          return {
-            ...req,
-            status,
-            comments,
-            resolvedBy: status !== "Pendiente" ? currentAdmin : undefined,
-            resolvedByEmail: status !== "Pendiente" ? adminEmail : undefined,
-            resolvedAt: status !== "Pendiente" ? new Date().toISOString() : undefined,
-          }
-        }
-        return req
+      const response = await fetch(`/api/requests/${params.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status,
+          resolvedByEmail: adminEmail,
+          comments
+        }),
       })
 
-      localStorage.setItem("requests", JSON.stringify(updatedRequests))
-      setRequest({ ...request, status, resolvedBy: currentAdmin })
+      if (!response.ok) {
+        throw new Error("Error al actualizar el estado")
+      }
+
+      const updatedRequest = await response.json()
+      setRequest(updatedRequest.request)
 
       toast({
         title: "Estado actualizado",
@@ -69,26 +76,6 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
       })
 
       router.push("/admin/dashboard")
-
-      // Send email notification to user about status change
-      try {
-        await fetch("/api/send-email", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            type: "status-update",
-            userEmail: request.email,
-            userName: request.email.split("@")[0],
-            requestId: params.id,
-            newStatus: status,
-            requestDescription: request.description,
-          }),
-        })
-      } catch (error) {
-        console.error("Error sending status update email:", error)
-      }
     } catch (error) {
       toast({
         title: "Error",
@@ -107,53 +94,34 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
     setIsLoading(true)
 
     try {
-      const currentAdmin = localStorage.getItem("userName") || "Departamento de Compras"
+      const currentAdmin = localStorage.getItem("userName") || "Administrador"
       const adminEmail = localStorage.getItem("userEmail") || "admin@compras.com"
 
-      const message = {
-        id: Date.now().toString(),
-        requestId: params.id,
-        sender: currentAdmin,
-        senderEmail: adminEmail,
-        senderType: "admin",
-        content: newMessage,
-        timestamp: new Date().toISOString(),
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requestId: params.id,
+          senderEmail: adminEmail,
+          content: newMessage,
+          senderType: "admin"
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Error al enviar el mensaje")
       }
 
-      // Get existing messages
-      const allMessages = JSON.parse(localStorage.getItem("messages") || "[]")
-      allMessages.push(message)
-      localStorage.setItem("messages", JSON.stringify(allMessages))
-
-      // Update local state
-      setMessages([...messages, message])
+      const result = await response.json()
+      setMessages([...messages, result.message])
       setNewMessage("")
 
       toast({
         title: "Mensaje enviado",
         description: `Su mensaje ha sido enviado al usuario por ${currentAdmin}`,
       })
-
-      // Send email notification to user about new message
-      try {
-        await fetch("/api/send-email", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            type: "new-message",
-            recipientEmail: request.email,
-            recipientName: request.email.split("@")[0],
-            senderName: currentAdmin,
-            messageContent: newMessage,
-            requestId: params.id,
-            isToAdmin: false,
-          }),
-        })
-      } catch (error) {
-        console.error("Error sending message notification email:", error)
-      }
     } catch (error) {
       toast({
         title: "Error",
