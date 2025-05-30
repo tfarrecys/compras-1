@@ -7,7 +7,7 @@ export default function Home() {
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-blue-50 to-indigo-100">
       <header className="bg-white/80 backdrop-blur-sm border-b border-blue-200">
         <div className="container flex h-16 items-center px-4 sm:px-6">
-          <div className="flex items-center gap-2 font-semibold text-blue-900">
+          <Link href="/" className="flex items-center gap-2 font-semibold text-blue-900 hover:text-blue-700">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="24"
@@ -25,7 +25,7 @@ export default function Home() {
               <path d="M16 10a4 4 0 0 1-8 0" />
             </svg>
             Sistema de Compras
-          </div>
+          </Link>
           <nav className="ml-auto flex gap-4 sm:gap-6">
             <Link href="/login" className="text-sm font-medium hover:underline text-blue-700 hover:text-blue-900">
               Iniciar Sesión
@@ -50,10 +50,14 @@ export default function Home() {
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">Iniciar Sesión</Button>
-                <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50">
-                  Crear Cuenta
-                </Button>
+                <Link href="/login">
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full">Iniciar Sesión</Button>
+                </Link>
+                <Link href="/register">
+                  <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50 w-full">
+                    Crear Cuenta
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>

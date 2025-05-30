@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { toast } from "@/components/ui/use-toast"
+import Cookies from "js-cookie"
 
 export function UserNav() {
   const router = useRouter()
@@ -30,17 +31,22 @@ export function UserNav() {
   }
 
   const handleLogout = () => {
+    // Eliminar datos del localStorage
     localStorage.removeItem("userType")
     localStorage.removeItem("userEmail")
     localStorage.removeItem("userName")
+    
+    // Eliminar cookies
+    Cookies.remove("user-token")
+    Cookies.remove("user-type")
+    
     toast({
       title: "👋 Sesión cerrada",
       description: "Ha cerrado sesión exitosamente. Redirigiendo...",
       duration: 3000,
     })
-    setTimeout(() => {
-      router.push("/")
-    }, 1500)
+    
+    router.push("/")
   }
 
   return (

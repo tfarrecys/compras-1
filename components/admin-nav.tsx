@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { toast } from "@/components/ui/use-toast"
+import Cookies from "js-cookie"
 
 export function AdminNav() {
   const router = useRouter()
@@ -33,14 +34,17 @@ export function AdminNav() {
     localStorage.removeItem("userType")
     localStorage.removeItem("userEmail")
     localStorage.removeItem("userName")
+    
+    Cookies.remove("user-token")
+    Cookies.remove("user-type")
+    
     toast({
       title: "👋 Sesión cerrada",
       description: "Ha cerrado sesión exitosamente. Redirigiendo...",
       duration: 3000,
     })
-    setTimeout(() => {
-      router.push("/")
-    }, 1500)
+    
+    router.push("/")
   }
 
   return (
