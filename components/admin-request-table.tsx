@@ -124,9 +124,9 @@ export function AdminRequestTable({ requests, updateStatus }: AdminRequestTableP
                 <TableCell>{request.priority && getPriorityBadge(request.priority)}</TableCell>
                 <TableCell className="text-gray-600">{request.date}</TableCell>
                 <TableCell>
-                  <Select value={request.status} onValueChange={(newStatus) => updateStatus(request.id, newStatus)}>
+                  <Select defaultValue={request.status} onValueChange={(newStatus) => updateStatus(request.id, newStatus)}>
                     <SelectTrigger className="w-36 bg-white border-blue-200">
-                      <SelectValue />
+                      <SelectValue placeholder={request.status} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Pendiente">Pendiente</SelectItem>

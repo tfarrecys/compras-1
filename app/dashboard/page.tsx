@@ -30,7 +30,7 @@ export default function DashboardPage() {
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-blue-50 to-indigo-100">
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-blue-200">
         <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2 font-semibold text-blue-900">
+          <Link href="/" className="flex items-center gap-2 font-semibold text-blue-900 hover:text-blue-700">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="24"
@@ -48,7 +48,7 @@ export default function DashboardPage() {
               <path d="M16 10a4 4 0 0 1-8 0" />
             </svg>
             Sistema de Compras
-          </div>
+          </Link>
           <UserNav />
         </div>
       </header>
