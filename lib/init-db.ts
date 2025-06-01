@@ -1,17 +1,13 @@
-import { Pool } from '@neondatabase/serverless'
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-})
+import { sql } from './db'
 
 export async function initializeDatabase() {
   try {
     // Verificar conexión
-    await pool.query('SELECT 1')
+    await sql.query('SELECT 1')
     console.log('Conexión a Neon DB verificada')
 
     // Crear tabla si no existe
-    await pool.query(`
+    await sql.query(`
       CREATE TABLE IF NOT EXISTS requests (
         id TEXT PRIMARY KEY,
         email TEXT NOT NULL,
@@ -34,14 +30,14 @@ export async function initializeDatabase() {
     `)
 
     // Verificar que la tabla se creó correctamente
-    const tableInfo = await pool.query(`
+    const tableInfo = await sql.query(`
       SELECT column_name, data_type 
       FROM information_schema.columns 
       WHERE table_name = 'requests'
       ORDER BY ordinal_position
     `)
 
-    console.log('Estructura de la tabla requests:', tableInfo.rows)
+    console.log('Estructura de la tabla requests:', tableInfo)
     return true
   } catch (error) {
     console.error('Error inicializando la base de datos:', error)
@@ -52,7 +48,7 @@ export async function initializeDatabase() {
 export const sql = {
   query: async (text: string, params?: any[]) => {
     try {
-      const result = await pool.query(text, params)
+      const result = await sql.query(text, params)
       return result.rows
     } catch (error) {
       console.error('Error en consulta SQL:', error)
