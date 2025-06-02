@@ -1,46 +1,31 @@
 import { NextResponse } from "next/server"
-import { sql } from "@/lib/db"
-import { initializeDatabase } from "@/lib/init-db"
+import { supabase } from "@/lib/db"
 
 // Obtener solicitudes
 export async function GET(request: Request) {
   try {
-    console.log("Iniciando obtención de solicitudes...")
-    
-    // Asegurarnos de que la tabla existe
-    await initializeDatabase()
-
     const { searchParams } = new URL(request.url)
     const email = searchParams.get('email')
     const userType = searchParams.get('userType')
 
-    console.log('Parámetros de búsqueda:', { email, userType })
-
-    // Construir la consulta base
-    let queryText = 'SELECT * FROM requests'
-    const queryParams = []
+    let query = supabase
+      .from('requests')
+      .select('*')
 
     // Si no es admin y hay email, filtrar por email
     if (userType !== 'admin' && email) {
-      queryText += ' WHERE email = $1'
-      queryParams.push(email)
+      query = query.eq('email', email)
     }
 
-    // Ordenar por fecha de creación
-    queryText += ' ORDER BY created_at DESC'
+    const { data, error } = await query.order('created_at', { ascending: false })
 
-    console.log('Ejecutando consulta:', { queryText, queryParams })
-    const result = await sql.query(queryText, queryParams)
-    console.log(`Solicitudes encontradas: ${result.length}`)
+    if (error) throw error
 
-    return NextResponse.json(result)
+    return NextResponse.json(data)
   } catch (error) {
-    console.error("Error al obtener solicitudes:", error)
+    console.error('Error al obtener solicitudes:', error)
     return NextResponse.json(
-      { 
-        error: "Error al cargar las solicitudes",
-        details: error instanceof Error ? error.message : "Error desconocido"
-      },
+      { error: 'Error al obtener solicitudes' },
       { status: 500 }
     )
   }
@@ -49,67 +34,24 @@ export async function GET(request: Request) {
 // Crear nueva solicitud
 export async function POST(request: Request) {
   try {
-    console.log("Iniciando creación de solicitud...")
+    const body = await request.json()
     
-    // Asegurarnos de que la tabla existe
-    await initializeDatabase()
+    const { data, error } = await supabase
+      .from('requests')
+      .insert([{
+        ...body,
+        created_at: new Date().toISOString(),
+        status: 'Pendiente'
+      }])
+      .select()
 
-    const data = await request.json()
-    console.log("Datos recibidos:", { ...data, description: data.description?.substring(0, 50) + "..." })
+    if (error) throw error
 
-    // Validar campos requeridos
-    if (!data.id || !data.email || !data.sector || !data.description) {
-      console.warn("Campos requeridos faltantes:", { 
-        hasId: !!data.id, 
-        hasEmail: !!data.email, 
-        hasSector: !!data.sector, 
-        hasDescription: !!data.description 
-      })
-      return NextResponse.json(
-        { error: "Faltan campos requeridos (id, email, sector, description)" },
-        { status: 400 }
-      )
-    }
-
-    const queryText = `
-      INSERT INTO requests (
-        id, email, sector, category, priority, description,
-        quantity, budget, observations, date, status, username,
-        created_at, updated_at
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-      )
-      RETURNING *
-    `
-
-    const queryParams = [
-      data.id,
-      data.email,
-      data.sector,
-      data.category || null,
-      data.priority || null,
-      data.description,
-      data.quantity ? parseInt(data.quantity) : null,
-      data.budget ? parseFloat(data.budget) : null,
-      data.observations || null,
-      data.date ? new Date(data.date) : new Date(),
-      'Pendiente',
-      data.user || null
-    ]
-
-    console.log('Ejecutando inserción:', { queryText, params: queryParams })
-    const result = await sql.query(queryText, queryParams)
-    console.log("Solicitud creada:", result[0])
-
-    return NextResponse.json(result[0])
+    return NextResponse.json(data[0])
   } catch (error) {
-    console.error("Error al crear solicitud:", error)
+    console.error('Error al crear solicitud:', error)
     return NextResponse.json(
-      { 
-        error: "Error al crear la solicitud",
-        details: error instanceof Error ? error.message : "Error desconocido"
-      },
+      { error: 'Error al crear solicitud' },
       { status: 500 }
     )
   }
