@@ -9,7 +9,9 @@ export async function middleware(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         auth: {
-          persistSession: false
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false
         }
       }
     )
