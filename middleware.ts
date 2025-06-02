@@ -1,50 +1,73 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname
-  const isPublicPath = path === "/login" || path === "/register" || path === "/"
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
-  const token = request.cookies.get("user-token")?.value || ""
-  const userType = request.cookies.get("user-type")?.value || ""
-
-  // Si el usuario intenta acceder a una ruta pública estando autenticado
-  if (isPublicPath && token) {
-    if (userType === "admin") {
-      return NextResponse.redirect(new URL("/admin/dashboard", request.url))
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: any) {
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+        },
+        remove(name: string, options: any) {
+          request.cookies.delete({
+            name,
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.delete({
+            name,
+            ...options,
+          })
+        },
+      },
     }
-    if (userType === "user") {
-      return NextResponse.redirect(new URL("/dashboard", request.url))
-    }
+  )
+
+  const { data: { session } } = await supabase.auth.getSession()
+
+  // Si no hay sesión y la ruta requiere autenticación
+  if (!session && (
+    request.nextUrl.pathname.startsWith('/dashboard') ||
+    request.nextUrl.pathname.startsWith('/admin')
+  )) {
+    return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
-  // Si el usuario intenta acceder a una ruta protegida sin estar autenticado
-  if (!isPublicPath && !token) {
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
-
-  // Si el usuario intenta acceder a rutas de admin sin ser admin
-  if (path.startsWith("/admin") && userType !== "admin") {
-    if (!token) {
-      return NextResponse.redirect(new URL("/login", request.url))
-    }
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  }
-
-  // Si el usuario admin intenta acceder a rutas de usuario normal
-  if (path.startsWith("/dashboard") && !path.startsWith("/dashboard/new-request") && userType === "admin") {
-    return NextResponse.redirect(new URL("/admin/dashboard", request.url))
-  }
-
-  return NextResponse.next()
+  return response
 }
 
 export const config = {
   matcher: [
-    "/",
-    "/login",
-    "/register",
-    "/dashboard/:path*",
-    "/admin/:path*",
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
